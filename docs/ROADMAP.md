@@ -10,7 +10,7 @@ Hetzner) · old `analyze` bot keeps running in parallel until BLACK LION is vali
 | 3. Features & Structure | 09–14 | Market Structure ✅, Liquidity ✅, OB ✅, FVG ✅, ICT ✅ (Feature store pending) | **mostly done** |
 | 4. Rule Engine | 15 | Confluence scoring + BUY/SELL/NO TRADE + signal pipeline ✅ | **done** |
 | 5. AI + Probability | 16–17 | XGBoost/LightGBM ensemble, calibration, EV gate (needs ≥3–6 months of journalled outcomes to train on; ships after live signal history accumulates) | pending |
-| 6. Risk Engine | 18 | Sizing, daily/weekly loss locks, exposure, correlation | pending |
+| 6. Risk Engine | 18 | Sizing, daily/weekly loss locks, exposure, correlation ✅ | **done** |
 | 7. Execution | 19 | MT5 order execution (bridge), position sync, partial close, trailing | pending |
 | 8. Backtesting | 20–21 | Replay, walk-forward, Monte Carlo, optimizer | pending |
 | 9. Reporting & Telegram | 22–23 | Daily/weekly reports, Telegram notifications (chat allowlist!) | pending |
