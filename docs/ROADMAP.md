@@ -11,7 +11,7 @@ Hetzner) · old `analyze` bot keeps running in parallel until BLACK LION is vali
 | 4. Rule Engine | 15 | Confluence scoring + BUY/SELL/NO TRADE + signal pipeline ✅ | **done** |
 | 5. AI + Probability | 16–17 | XGBoost/LightGBM ensemble, calibration, EV gate (needs ≥3–6 months of journalled outcomes to train on; ships after live signal history accumulates) | pending |
 | 6. Risk Engine | 18 | Sizing, daily/weekly loss locks, exposure, correlation ✅ | **done** |
-| 7. Execution | 19 | MT5 order execution (bridge), position sync, partial close, trailing | pending |
+| 7. Execution | 19 | Broker Protocol + PaperBroker ✅, Execution Engine ✅ (validation/retry/slippage/partial/breakeven/sync), MT5 bridge adapter written (needs live terminal) | **done (paper); MT5 pending creds** |
 | 8. Backtesting | 20–21 | Replay, walk-forward, Monte Carlo, optimizer | pending |
 | 9. Reporting & Telegram | 22–23 | Daily/weekly reports, Telegram notifications (chat allowlist!) | pending |
 | 10. Monitoring & Security | 24–25, 38–40 | Health endpoint, Prometheus metrics, secrets, audit log | pending |
