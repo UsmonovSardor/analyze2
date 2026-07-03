@@ -1,0 +1,52 @@
+# Per-engine parameters (SRS docs 10–15 configuration sections).
+market_structure:
+  swing_window: 5
+  bos_confirmation: close        # close-based, no wick-only breaks (doc 10 §8)
+  minimum_break_atr: 0.2
+  structure_score_threshold: 70
+
+liquidity:
+  equal_tolerance_atr: 0.1
+  minimum_touches: 2
+  minimum_liquidity_score: 70
+  enable_stop_hunt_filter: true
+
+order_block:
+  minimum_displacement_atr: 1.5
+  minimum_score: 75
+  max_retests: 2
+  mitigation_threshold_pct: 50
+
+fvg:
+  minimum_gap_atr: 0.15
+  minimum_score: 70
+  maximum_gap_age_bars: 500
+  allow_inverse_fvg: true
+
+ict:
+  ote_zone: {min: 0.62, max: 0.79}
+  preferred_ote: 0.705
+  minimum_ict_score: 80
+  enable_smt: true
+  enable_judas: true
+
+rule_engine:
+  minimum_confluence_score: 80
+  minimum_confidence: 85
+  require_htf_alignment: true
+  allow_countertrend: false
+  # doc 15 §10 weights (must sum to 100)
+  weights:
+    market_structure: 25
+    liquidity: 15
+    order_block: 15
+    fvg: 10
+    ict: 15
+    trend: 10
+    volatility: 5
+    session: 5
+
+probability:
+  minimum_probability: 85
+  minimum_expected_value: 0.5
+  historical_neighbors: 100

@@ -1,0 +1,207 @@
+"""Rule Engine (SRS doc 15) — deterministic decision core.
+
+Aggregates every analytical engine into ONE decision: BUY / SELL / NO TRADE.
+Applies mandatory conditions (doc 15 §6), weighted confluence scoring (§10) and
+anchors entry/SL/TP to real levels — never invents prices (doc 01 §10).
+
+The AI Decision + Probability engines (docs 16–17) refine this later; they can
+only make the system MORE selective, never override a NO TRADE into a trade.
+"""
+from __future__ import annotations
+
+from typing import Literal
+
+import pandas as pd
+from pydantic import BaseModel
+
+from ...core import config
+from ...core.events import bus
+from ...core.logging import get_logger
+from ..fvg import FVGResult
+from ..ict import ICTResult
+from ..liquidity import LiquidityResult
+from ..market_structure import StructureResult
+from ..order_block import OrderBlockResult
+
+log = get_logger("engines.rule_engine")
+
+Direction = Literal["BUY", "SELL", "NO TRADE"]
+
+
+class Signal(BaseModel):
+    symbol: str
+    direction: Literal["BUY", "SELL"]
+    entry: float
+    stop_loss: float
+    tp1: float
+    tp2: float
+    tp3: float
+    rr: float                        # entry→tp2 in R
+    confidence: int
+    confluence_score: int
+    reasons: list[str]
+
+
+class RuleDecision(BaseModel):
+    symbol: str
+    decision: Direction
+    confluence_score: int
+    confidence: int
+    reasons: list[str] = []
+    rejected: list[str] = []
+    signal: Signal | None = None
+
+
+class RuleEngine:
+    def __init__(self) -> None:
+        cfg = config.engine("rule_engine")
+        self.min_confluence: int = int(cfg.get("minimum_confluence_score", 80))
+        self.min_confidence: int = int(cfg.get("minimum_confidence", 85))
+        self.require_htf: bool = bool(cfg.get("require_htf_alignment", True))
+        self.allow_counter: bool = bool(cfg.get("allow_countertrend", False))
+        self.w: dict = cfg["weights"]
+        self.risk = config.load("risk")
+
+    def evaluate(self, symbol: str, df: pd.DataFrame,
+                 structure: StructureResult, liquidity: LiquidityResult,
+                 order_block: OrderBlockResult, fvg: FVGResult, ict: ICTResult,
+                 htf_bullish: bool | None = None) -> RuleDecision:
+        reasons: list[str] = []
+        rejected: list[str] = []
+
+        bull = structure.trend.bullish
+        bear = structure.trend.bearish
+        direction: Direction = "BUY" if bull else "SELL" if bear else "NO TRADE"
+
+        # ── Mandatory conditions (doc 15 §6) ──────────────────────────────
+        if direction == "NO TRADE":
+            rejected.append("no directional structure (sideways)")
+        if not (structure.bos or structure.choch):
+            rejected.append("no BOS/CHOCH confirmation")
+        if self.require_htf and htf_bullish is not None and direction != "NO TRADE":
+            if (direction == "BUY") != htf_bullish:
+                rejected.append("HTF trend conflicts with entry")
+        if not self.allow_counter and direction != "NO TRADE":
+            if (direction == "BUY" and bear) or (direction == "SELL" and bull):
+                rejected.append("counter-trend")
+
+        ob = order_block.best
+        ob_aligned = ob is not None and (
+            (direction == "BUY" and ob.type == "bullish") or
+            (direction == "SELL" and ob.type == "bearish"))
+        fvg_aligned = fvg.nearest is not None and (
+            (direction == "BUY" and fvg.nearest.type == "bullish") or
+            (direction == "SELL" and fvg.nearest.type == "bearish"))
+        if not (ob_aligned or fvg_aligned):
+            rejected.append("no aligned Order Block or FVG")
+
+        # location: longs from discount, shorts from premium (doc 15 §7–8)
+        if direction == "BUY" and ict.premium_discount == "Premium":
+            rejected.append("long from premium zone")
+        if direction == "SELL" and ict.premium_discount == "Discount":
+            rejected.append("short from discount zone")
+
+        confluence = self._confluence(direction, structure, liquidity,
+                                      order_block, fvg, ict, ob_aligned, fvg_aligned)
+
+        if rejected or confluence < self.min_confluence:
+            if confluence < self.min_confluence and not rejected:
+                rejected.append(f"confluence {confluence} < {self.min_confluence}")
+            bus.publish("SignalRejected", symbol=symbol, reasons=rejected)
+            return RuleDecision(symbol=symbol, decision="NO TRADE",
+                                confluence_score=confluence, confidence=0,
+                                rejected=rejected)
+
+        # ── Build the signal — anchor levels to structure ─────────────────
+        reasons = self._reasons(direction, structure, liquidity, ob, fvg, ict)
+        signal = self._build_signal(symbol, df, direction, structure, ob, fvg, confluence)
+        if signal is None:
+            rejected.append("risk/reward below minimum after level anchoring")
+            return RuleDecision(symbol=symbol, decision="NO TRADE",
+                                confluence_score=confluence, confidence=0,
+                                rejected=rejected)
+
+        signal.reasons = reasons
+        bus.publish("SignalGenerated", symbol=symbol, direction=direction,
+                    confidence=signal.confidence)
+        return RuleDecision(symbol=symbol, decision=direction,
+                            confluence_score=confluence, confidence=signal.confidence,
+                            reasons=reasons, signal=signal)
+
+    # ── Weighted confluence (doc 15 §10) ──────────────────────────────────
+    def _confluence(self, direction, structure, liquidity, order_block, fvg,
+                    ict, ob_aligned, fvg_aligned) -> int:
+        w = self.w
+        score = 0.0
+        score += w["market_structure"] * structure.strength / 100
+        score += w["liquidity"] * liquidity.liquidity_score / 100
+        score += w["order_block"] * ((order_block.best.score / 100) if ob_aligned else 0)
+        score += w["fvg"] * ((fvg.nearest.score / 100) if fvg_aligned else 0)
+        score += w["ict"] * ict.ict_score / 100
+        trend_factor = 1.0 if structure.trend.name.startswith("STRONG") else \
+            0.7 if direction != "NO TRADE" else 0.3
+        score += w["trend"] * trend_factor
+        score += w["volatility"] * 0.7                       # placeholder until vol engine
+        score += w["session"] * (1.0 if ict.kill_zone else 0.4)
+        return max(0, min(100, round(score)))
+
+    def _confidence(self, confluence: int, structure: StructureResult) -> int:
+        # confidence blends confluence with structure quality (doc 15 §11)
+        base = 0.7 * confluence + 0.3 * structure.strength
+        return max(0, min(100, round(base)))
+
+    def _reasons(self, direction, structure, liquidity, ob, fvg, ict) -> list[str]:
+        r = [f"{structure.trend.value} structure",
+             f"{'Bullish' if direction == 'BUY' else 'Bearish'} "
+             f"{'CHOCH' if structure.choch else 'BOS'}"]
+        if liquidity.liquidity_swept:
+            r.append("Liquidity sweep")
+        if ob:
+            r.append(f"{ob.quality} Order Block")
+        if fvg.nearest:
+            r.append(f"{fvg.nearest.quality} FVG")
+        r.append(f"{ict.premium_discount} zone")
+        if ict.ote:
+            r.append("OTE")
+        if ict.kill_zone:
+            r.append(f"{ict.kill_zone} kill zone")
+        return r
+
+    def _build_signal(self, symbol, df, direction, structure, ob, fvg,
+                      confluence) -> Signal | None:
+        atr = float(df["atr"].iloc[-1]) if "atr" in df and df["atr"].iloc[-1] > 0 else \
+            float((df["high"] - df["low"]).tail(14).mean())
+        entry = float(df["close"].iloc[-1])
+        min_rr = float(self.risk["minimum_rr"])
+
+        # SL beyond the protective structure (OB far edge / recent swing) + ATR buffer
+        if direction == "BUY":
+            protective = ob.price_low if ob else structure.last_swing_low
+            protective = protective if protective is not None else entry - 1.5 * atr
+            sl = min(protective, entry - 1.0 * atr) - 0.1 * atr
+            r = entry - sl
+            if r <= 0:
+                return None
+            tp1, tp2, tp3 = entry + 1.5 * r, entry + min_rr * r, entry + 4 * r
+        else:
+            protective = ob.price_high if ob else structure.last_swing_high
+            protective = protective if protective is not None else entry + 1.5 * atr
+            sl = max(protective, entry + 1.0 * atr) + 0.1 * atr
+            r = sl - entry
+            if r <= 0:
+                return None
+            tp1, tp2, tp3 = entry - 1.5 * r, entry - min_rr * r, entry - 4 * r
+
+        rr = abs(tp2 - entry) / r
+        if rr < min_rr:
+            return None
+        digits = config.load("symbols")["symbols"].get(symbol, {}).get("digits", 5)
+
+        def rnd(x: float) -> float:
+            return round(x, digits)
+        return Signal(
+            symbol=symbol, direction=direction,  # type: ignore[arg-type]
+            entry=rnd(entry), stop_loss=rnd(sl),
+            tp1=rnd(tp1), tp2=rnd(tp2), tp3=rnd(tp3), rr=round(rr, 2),
+            confidence=self._confidence(confluence, structure),
+            confluence_score=confluence, reasons=[])

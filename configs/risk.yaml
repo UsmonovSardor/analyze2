@@ -1,0 +1,16 @@
+# SRS doc 18 — Risk Management Engine defaults.
+risk_per_trade_pct: 1.0        # of balance
+max_risk_per_trade_pct: 2.0
+minimum_rr: 2.0
+preferred_rr: 3.0
+daily_loss_limit_pct: 3.0
+weekly_loss_limit_pct: 6.0
+monthly_loss_limit_pct: 10.0
+maximum_open_trades: 5
+maximum_portfolio_heat_pct: 5.0
+max_exposure_pct: {commodity: 2.0, forex: 4.0, crypto: 5.0}
+correlation_groups:
+  - [EURUSD, GBPUSD]
+  - [XAUUSD, XAGUSD]
+  - [BTCUSDT, ETHUSDT]
+sizing_model: fixed_risk_pct    # fixed_lot | fixed_risk_pct | atr_based

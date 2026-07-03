@@ -1,0 +1,26 @@
+# SRS docs 06/08 — symbol registry + broker-name normalization.
+symbols:
+  EURUSD: {market: forex,     digits: 5, max_spread_points: 15}
+  GBPUSD: {market: forex,     digits: 5, max_spread_points: 20}
+  USDJPY: {market: forex,     digits: 3, max_spread_points: 15}
+  AUDUSD: {market: forex,     digits: 5, max_spread_points: 15}
+  NZDUSD: {market: forex,     digits: 5, max_spread_points: 18}
+  USDCAD: {market: forex,     digits: 5, max_spread_points: 18}
+  USDCHF: {market: forex,     digits: 5, max_spread_points: 18}
+  XAUUSD: {market: commodity, digits: 2, max_spread_points: 35}
+  XAGUSD: {market: commodity, digits: 3, max_spread_points: 40}
+  BTCUSDT: {market: crypto,   digits: 2, max_spread_points: 0}
+  ETHUSDT: {market: crypto,   digits: 2, max_spread_points: 0}
+
+# Broker symbol → internal symbol (doc 08 §6)
+aliases:
+  GOLD: XAUUSD
+  XAUUSD.r: XAUUSD
+  XAUUSDm: XAUUSD
+  GER40.cash: GER40
+  BTCUSD: BTCUSDT
+
+timeframes: [M1, M5, M15, M30, H1, H4, D1, W1, MN]
+
+# entry TF → higher context TF
+tf_context: {M5: M15, M15: H1, H1: H4, H4: D1, D1: W1}
