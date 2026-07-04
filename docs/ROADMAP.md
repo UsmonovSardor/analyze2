@@ -13,7 +13,7 @@ Hetzner) · old `analyze` bot keeps running in parallel until BLACK LION is vali
 | 6. Risk Engine | 18 | Sizing, daily/weekly loss locks, exposure, correlation ✅ | **done** |
 | 7. Execution | 19 | Broker Protocol + PaperBroker ✅, Execution Engine ✅ (validation/retry/slippage/partial/breakeven/sync), MT5 bridge adapter written (needs live terminal) | **done (paper); MT5 pending creds** |
 | 8. Backtesting | 20–21 | Replay, walk-forward, Monte Carlo, optimizer | pending |
-| 9. Reporting & Telegram | 22–23 | Daily/weekly reports, Telegram notifications (chat allowlist!) | pending |
+| 9. Reporting & Telegram | 22–23 | Telegram signals + outcomes + daily/weekly reports ✅, chat allowlist enforced ✅ (charts = optional next; separate BL_TELEGRAM_* bot) | **done (text); charts optional** |
 | 10. Monitoring & Security | 24–25, 38–40 | Health endpoint, Prometheus metrics, secrets, audit log | pending |
 | 11. Dashboard | 32 frontend | Next.js dashboard | v2 |
 | 12. Production | 29, 43 | Hetzner deploy alongside old bot, canary period | pending |

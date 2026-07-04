@@ -19,16 +19,19 @@ from .engines.pipeline import SignalPipeline
 from .execution import Broker, ExecutionEngine
 from .journal import Journal
 from .risk import AccountState, OpenPosition, RiskEngine
+from .telegram import Notifier
 
 log = get_logger("runtime")
 
 
 class Runtime:
     def __init__(self, source: MarketDataSource, broker: Broker,
-                 journal: Journal | None = None) -> None:
+                 journal: Journal | None = None,
+                 notifier: Notifier | None = None) -> None:
         self.source = source
         self.broker = broker
         self.journal = journal or Journal()
+        self.notifier = notifier or Notifier()
         self.pipeline = SignalPipeline()
         self.structure = MarketStructureEngine()
         self.risk = RiskEngine()
@@ -65,6 +68,7 @@ class Runtime:
 
         sig = decision.signal
         sid = self.journal.record_signal(sig)          # record EVERY signal (for AI later)
+        self.notifier.on_signal(sig, sid, market_ctx=f"{symbol} · {self.entry_tf}")
 
         account = self._account_state()
         risk = self.risk.evaluate(sig, account)
@@ -104,11 +108,13 @@ class Runtime:
             self.journal.close_signal(row.id, status, result_r)
             if row.ticket:
                 self.broker.close(row.ticket)
+            self.notifier.on_outcome(row, status, result_r)
         elif hit_tp3:
             result_r = round(abs(row.tp3 - row.entry) / r, 2)
             self.journal.close_signal(row.id, "tp3", result_r)
             if row.ticket:
                 self.broker.close(row.ticket)
+            self.notifier.on_outcome(row, "tp3", result_r)
 
     def _account_state(self) -> AccountState:
         positions = []
@@ -124,7 +130,10 @@ class Runtime:
 
     # ── blocking loop for __main__ ────────────────────────────────────────
     def run_forever(self, scan_interval: int = 1800, outcome_interval: int = 300) -> None:  # pragma: no cover
+        from datetime import datetime, timezone
         last_scan = last_outcome = 0.0
+        last_digest_day = None
+        digest_hour = int(config.env("BL_DIGEST_HOUR_UTC", "16"))
         while True:
             now = time.time()
             if now - last_scan >= scan_interval:
@@ -134,4 +143,13 @@ class Runtime:
             if now - last_outcome >= outcome_interval:
                 last_outcome = now
                 self.check_outcomes()
+            # allowlisted Telegram commands (/stats, /open, ...)
+            if self.notifier.enabled:
+                self.notifier.poll_commands(self.journal)
+            # once-a-day digest
+            utc = datetime.now(timezone.utc)
+            if utc.hour >= digest_hour and last_digest_day != utc.date():
+                last_digest_day = utc.date()
+                if self.notifier.enabled:
+                    self.notifier.send_daily_digest(self.journal)
             time.sleep(5)
