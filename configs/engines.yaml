@@ -31,16 +31,16 @@ ict:
   enable_judas: true
 
 rule_engine:
-  minimum_confluence_score: 80
-  minimum_confidence: 85
+  minimum_confluence_score: 65    # calibrated from backtest (was 80, unreachable)
+  minimum_confidence: 60
   require_htf_alignment: true
   allow_countertrend: false
-  # doc 15 §10 weights (must sum to 100)
+  # doc 15 §10 weights (must sum to 100). OB+FVG folded into one "zone" so the
+  # mandatory OB-OR-FVG gate doesn't structurally cap the score (calibration).
   weights:
     market_structure: 25
     liquidity: 15
-    order_block: 15
-    fvg: 10
+    zone: 25            # best of aligned Order Block / FVG (+bonus if both)
     ict: 15
     trend: 10
     volatility: 5

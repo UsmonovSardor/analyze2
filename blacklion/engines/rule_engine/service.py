@@ -104,7 +104,8 @@ class RuleEngine:
             rejected.append("short from discount zone")
 
         confluence = self._confluence(direction, structure, liquidity,
-                                      order_block, fvg, ict, ob_aligned, fvg_aligned)
+                                      order_block, fvg, ict, ob_aligned, fvg_aligned,
+                                      vol_factor=self._vol_factor(df))
 
         if rejected or confluence < self.min_confluence:
             if confluence < self.min_confluence and not rejected:
@@ -132,20 +133,48 @@ class RuleEngine:
 
     # ── Weighted confluence (doc 15 §10) ──────────────────────────────────
     def _confluence(self, direction, structure, liquidity, order_block, fvg,
-                    ict, ob_aligned, fvg_aligned) -> int:
+                    ict, ob_aligned, fvg_aligned, vol_factor: float = 0.7) -> int:
         w = self.w
         score = 0.0
         score += w["market_structure"] * structure.strength / 100
         score += w["liquidity"] * liquidity.liquidity_score / 100
-        score += w["order_block"] * ((order_block.best.score / 100) if ob_aligned else 0)
-        score += w["fvg"] * ((fvg.nearest.score / 100) if fvg_aligned else 0)
+
+        # Zone = the institutional entry area. The mandatory gate already requires
+        # an aligned OB OR FVG, so scoring them SEPARATELY structurally caps the
+        # score (the missing one contributes 0). Credit the BEST aligned zone, with
+        # a small bonus when BOTH confirm — a setup isn't "worse" for lacking one.
+        ob_s = order_block.best.score if ob_aligned else 0
+        fvg_s = fvg.nearest.score if fvg_aligned else 0
+        zone = max(ob_s, fvg_s) / 100
+        if ob_aligned and fvg_aligned:
+            zone = min(1.0, zone + 0.1)
+        score += w["zone"] * zone
+
         score += w["ict"] * ict.ict_score / 100
         trend_factor = 1.0 if structure.trend.name.startswith("STRONG") else \
             0.7 if direction != "NO TRADE" else 0.3
         score += w["trend"] * trend_factor
-        score += w["volatility"] * 0.7                       # placeholder until vol engine
+        score += w["volatility"] * vol_factor
         score += w["session"] * (1.0 if ict.kill_zone else 0.4)
         return max(0, min(100, round(score)))
+
+    @staticmethod
+    def _vol_factor(df: pd.DataFrame) -> float:
+        """Healthy volatility scores ~1.0; dead or chaotic markets score lower.
+        Uses current ATR vs its own recent average (doc 09 volatility features)."""
+        if "atr" not in df or len(df) < 20:
+            return 0.7
+        atr = float(df["atr"].iloc[-1])
+        avg = float(df["atr"].tail(50).mean()) or atr
+        if avg <= 0:
+            return 0.7
+        ratio = atr / avg
+        # best band 0.8–1.5× average; taper outside it
+        if 0.8 <= ratio <= 1.5:
+            return 1.0
+        if ratio < 0.8:
+            return max(0.4, ratio / 0.8)
+        return max(0.4, 1.5 / ratio)
 
     def _confidence(self, confluence: int, structure: StructureResult) -> int:
         # confidence blends confluence with structure quality (doc 15 §11)

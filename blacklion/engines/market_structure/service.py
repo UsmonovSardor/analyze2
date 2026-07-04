@@ -83,6 +83,8 @@ class MarketStructureEngine:
         cfg = config.engine("market_structure")
         self.window: int = int(cfg.get("swing_window", 5))
         self.min_break_atr: float = float(cfg.get("minimum_break_atr", 0.2))
+        # how many recent swings count as a "recent" structural break (regime flag)
+        self.break_lookback_swings: int = int(cfg.get("break_lookback_swings", 2))
 
     # ── Swing detection (doc 10 §6) ────────────────────────────────────────
     def detect_swings(self, df: pd.DataFrame) -> list[Swing]:
@@ -155,21 +157,35 @@ class MarketStructureEngine:
         last_high = sw_highs[-1] if sw_highs else None
         last_low = sw_lows[-1] if sw_lows else None
 
-        # BOS: close beyond last confirmed swing (doc 10 §8 — close-based, no wick-only)
-        bos, bos_dir = False, ""
-        if last_high and close > last_high.price + min_break:
-            bos, bos_dir = True, "bullish"
-        elif last_low and close < last_low.price - min_break:
-            bos, bos_dir = True, "bearish"
+        # Two kinds of break:
+        #  • immediate — this bar's close pierced the last swing (a fresh event)
+        #  • recent    — a HH/LL formed in the last few swings (a REGIME flag that
+        #    stays valid through the pullback where SMC entries actually happen)
+        recent = [s.label for s in swings][-self.break_lookback_swings * 2:]
+        imm_bull = last_high is not None and close > last_high.price + min_break
+        imm_bear = last_low is not None and close < last_low.price - min_break
+        with_trend_bull = imm_bull or "HH" in recent
+        with_trend_bear = imm_bear or "LL" in recent
 
-        # CHOCH: first break AGAINST the prevailing trend (doc 10 §9)
+        # CHOCH is the FIRST fresh break against the prevailing trend — it takes
+        # priority over a continuation BOS. BOS is the recent with-trend structure.
+        bos, bos_dir = False, ""
         choch, choch_dir = False, ""
-        if trend.bearish and last_high and close > last_high.price + min_break:
-            choch, choch_dir = True, "bullish"
-        elif trend.bullish and last_low and close < last_low.price - min_break:
-            choch, choch_dir = True, "bearish"
-        if choch:                    # a break against trend is CHOCH, not trend-BOS
-            bos, bos_dir = False, ""
+        if trend.bullish:
+            if imm_bear:
+                choch, choch_dir = True, "bearish"
+            elif with_trend_bull:
+                bos, bos_dir = True, "bullish"
+        elif trend.bearish:
+            if imm_bull:
+                choch, choch_dir = True, "bullish"
+            elif with_trend_bear:
+                bos, bos_dir = True, "bearish"
+        else:                                    # transition: a fresh break = CHOCH
+            if imm_bull or "HH" in recent:
+                choch, choch_dir = True, "bullish"
+            elif imm_bear or "LL" in recent:
+                choch, choch_dir = True, "bearish"
 
         strength = self._strength(labels, trend, bos, df)
         result = StructureResult(
