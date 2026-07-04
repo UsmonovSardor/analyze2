@@ -16,7 +16,7 @@ Hetzner) · old `analyze` bot keeps running in parallel until BLACK LION is vali
 | 9. Reporting & Telegram | 22–23 | Telegram signals + outcomes + daily/weekly reports ✅, chat allowlist enforced ✅ (charts = optional next; separate BL_TELEGRAM_* bot) | **done (text); charts optional** |
 | 10. Monitoring & Security | 24–25, 38–40 | Health endpoint, Prometheus metrics, secrets, audit log | pending |
 | 11. Dashboard | 32 frontend | Next.js dashboard | v2 |
-| 12. Production | 29, 43 | Hetzner deploy alongside old bot, canary period | pending |
+| 12. Production | 29, 43 | Dry-run deploy ready: lean docker-compose (bot-only) + Dockerfile + docs/DEPLOY.md; live path validated on real Yahoo data ✅. New Hetzner server pending user | **deploy-ready** |
 
 Deferred to v2+ (deliberately, single-server reality): Kubernetes, gRPC
 microservice split, RabbitMQ/Kafka (in-process event bus first), multi-user

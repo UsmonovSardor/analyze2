@@ -1,3 +1,6 @@
+# v1 dry-run deploy — just the bot (PaperBroker + Yahoo feed + SQLite journal +
+# Telegram). No Postgres/Redis/MT5 needed yet; those live in docker-compose.full.yml
+# and get wired in when a broker / Timescale is actually used.
 services:
   bot:
     build: .
@@ -5,51 +8,10 @@ services:
     env_file: .env
     environment:
       PYTHONUNBUFFERED: "1"
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
+      DB_PATH: /data/journal.db      # persisted on the bl_data volume
     volumes:
       - ./configs:/app/configs:ro
       - bl_data:/data
 
-  db:
-    image: timescale/timescaledb:latest-pg16
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: blacklion
-      POSTGRES_PASSWORD: blacklion
-      POSTGRES_DB: black_lion_ai
-    volumes:
-      - bl_pg:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U blacklion -d black_lion_ai"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    volumes:
-      - bl_redis:/data
-
-  # MetaTrader 5 terminal under Wine + rpyc bridge (port 8001).
-  # First run: open VNC (port 3000) once to log the terminal into the broker.
-  mt5:
-    image: gmag11/metatrader5_vnc:latest
-    restart: unless-stopped
-    environment:
-      CUSTOM_USER: admin
-      PASSWORD: change-me
-    ports:
-      - "127.0.0.1:3000:3000"   # noVNC — keep bound to localhost, tunnel via SSH
-    volumes:
-      - bl_mt5:/config
-
 volumes:
   bl_data:
-  bl_pg:
-  bl_redis:
-  bl_mt5:

@@ -76,7 +76,10 @@ class YahooSource:                    # pragma: no cover - network dependent
                           auto_adjust=True, multi_level_index=False)
         if raw is None or raw.empty:
             raise RuntimeError(f"yfinance: no data for {ticker}")
-        raw = raw.rename(columns=str.lower).reset_index()
+        # reset FIRST so the DatetimeIndex becomes a column, THEN lowercase all
+        # columns (index name is "Datetime"/"Date" — capitalised until now).
+        raw = raw.reset_index()
+        raw.columns = [str(c).lower() for c in raw.columns]
         if timeframe == "H4":
             raw = self._resample_4h(raw)
         return _finalize(raw[list(_REQUIRED)].tail(count))
