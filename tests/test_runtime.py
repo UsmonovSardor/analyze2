@@ -60,13 +60,24 @@ def test_cooldown_blocks_second_scan(rt, monkeypatch):
     assert rt.scan_once() == []          # within cooldown → skipped
 
 
+def _set_last_bar(rt, low: float, high: float) -> None:
+    """Point the data source's latest EURUSD bar at a given low/high so outcome
+    tracking (which reads price from the SOURCE, not the broker) can resolve.
+    open/close pinned to 1.1000 and clamped inside [low, high] so the candle is
+    valid (else the validator drops it)."""
+    frame = df_from_ohlc(_flat(1.1000, 300))
+    oc = min(max(1.1000, low), high)
+    frame.loc[frame.index[-1], ["open", "high", "low", "close"]] = [oc, high, low, oc]
+    rt.source._frames["EURUSD:H1"] = frame
+
+
 def test_check_outcomes_closes_at_stop(rt):
     sid = rt.journal.record_signal(Signal(
         symbol="EURUSD", direction="BUY", entry=1.1000, stop_loss=1.0980,
         tp1=1.1010, tp2=1.1050, tp3=1.1100, rr=2.5, confidence=88,
         confluence_score=90, reasons=["x"]))
     rt.journal.record_execution(sid, "T-1", 0.5, 1.1000)
-    rt.broker.set_price("EURUSD", 1.0975)     # below stop
+    _set_last_bar(rt, low=1.0975, high=1.0999)   # bar dipped below stop
     rt.check_outcomes()
     assert rt.journal.get(sid).status == "stopped"
     assert rt.journal.get(sid).result_r == -1.0
@@ -78,7 +89,7 @@ def test_check_outcomes_closes_at_tp3(rt):
         tp1=1.1010, tp2=1.1050, tp3=1.1100, rr=2.5, confidence=88,
         confluence_score=90, reasons=["x"]))
     rt.journal.record_execution(sid, "T-1", 0.5, 1.1000)
-    rt.broker.set_price("EURUSD", 1.1105)     # above tp3
+    _set_last_bar(rt, low=1.1001, high=1.1105)   # bar spiked above tp3
     rt.check_outcomes()
     row = rt.journal.get(sid)
     assert row.status == "tp3" and row.result_r == 5.0

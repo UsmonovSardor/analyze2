@@ -30,9 +30,12 @@ def test_execution_links_ticket(journal):
     assert len(journal.open_trades()) == 1        # only ticketed trades count
 
 
-def test_untraded_signal_not_in_open_trades(journal):
-    journal.record_signal(sig())                  # recorded but never executed
-    assert journal.open_trades() == []
+def test_untraded_signal_is_shadow_tracked(journal):
+    # dry-run: every signal is tracked for its forward outcome, executed or not,
+    # so the AI layer gets a labelled TP/SL history
+    journal.record_signal(sig())                  # recorded, never executed
+    open_rows = journal.open_trades()
+    assert len(open_rows) == 1 and open_rows[0].ticket is None
 
 
 def test_close_updates_result_and_stats(journal):

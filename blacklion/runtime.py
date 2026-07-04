@@ -88,20 +88,26 @@ class Runtime:
 
     # ── outcome tracking for open trades ──────────────────────────────────
     def check_outcomes(self) -> None:
+        # Price of record is the DATA SOURCE (Yahoo/MT5), not the broker — in
+        # dry-run the PaperBroker has no quotes. Fetch each symbol's latest bar
+        # once per cycle and use its high/low so intrabar TP/SL hits are caught.
+        cache: dict[str, tuple[float, float]] = {}
         for row in self.journal.open_trades():
             try:
-                price = self.broker.current_price(row.symbol)
-                if price <= 0:
-                    continue
-                self._resolve(row, price)
+                if row.symbol not in cache:
+                    df = self.source.fetch(row.symbol, self.entry_tf, 3)
+                    cache[row.symbol] = (float(df["high"].iloc[-1]),
+                                         float(df["low"].iloc[-1]))
+                hi, lo = cache[row.symbol]
+                self._resolve(row, hi, lo)
             except Exception as exc:
                 log.error("OutcomeError", id=row.id, error=str(exc))
 
-    def _resolve(self, row, price: float) -> None:
+    def _resolve(self, row, hi: float, lo: float) -> None:
         long = row.direction == "BUY"
         r = abs(row.entry - row.stop_loss) or 1e-9
-        hit_sl = (price <= row.stop_loss) if long else (price >= row.stop_loss)
-        hit_tp3 = (price >= row.tp3) if long else (price <= row.tp3)
+        hit_sl = (lo <= row.stop_loss) if long else (hi >= row.stop_loss)
+        hit_tp3 = (hi >= row.tp3) if long else (lo <= row.tp3)
         if hit_sl:
             result_r = -1.0 if row.status == "open" else 0.0   # breakeven after TP1
             status = "stopped" if row.status == "open" else "breakeven"

@@ -106,10 +106,13 @@ class Journal:
         return self._row(row) if row else None
 
     def open_trades(self) -> list[TradeRow]:
+        """Every unresolved signal — tracked for its forward outcome whether or not
+        it was executed. In dry-run this shadow-tracks EVERY signal so the AI layer
+        (docs 16-17) gets a labelled TP/SL history; the ticket, when present, also
+        closes the real broker position on resolution."""
         with self._conn() as c:
             rows = c.execute(
-                "SELECT * FROM signals WHERE status IN ('open','tp1','tp2') "
-                "AND ticket IS NOT NULL").fetchall()
+                "SELECT * FROM signals WHERE status IN ('open','tp1','tp2')").fetchall()
         return [self._row(r) for r in rows]
 
     def signals_today(self) -> int:
