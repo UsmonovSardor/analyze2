@@ -138,8 +138,11 @@ class Runtime:
     def run_forever(self, scan_interval: int = 1800, outcome_interval: int = 300) -> None:  # pragma: no cover
         from datetime import datetime, timezone
         last_scan = last_outcome = 0.0
-        last_digest_day = None
         digest_hour = int(config.env("BL_DIGEST_HOUR_UTC", "16"))
+        # If the bot (re)starts AFTER the digest hour, treat today's digest as
+        # already sent — otherwise every redeploy re-sends the daily summary.
+        _boot = datetime.now(timezone.utc)
+        last_digest_day = _boot.date() if _boot.hour >= digest_hour else None
         while True:
             now = time.time()
             if now - last_scan >= scan_interval:
