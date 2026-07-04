@@ -64,12 +64,26 @@ class YahooSource:                    # pragma: no cover - network dependent
     """yfinance adapter for forex/gold/stocks (SRS doc 06 §3 market feeds)."""
 
     _TF = {"M15": "15m", "H1": "1h", "H4": "1h", "D1": "1d"}
-    _MAP = {"XAUUSD": "GC=F", "EURUSD": "EURUSD=X", "GBPUSD": "GBPUSD=X",
-            "USDJPY": "USDJPY=X", "AUDUSD": "AUDUSD=X"}
+    # Explicit tickers for non-forex; forex falls back to "<PAIR>=X" (see _ticker).
+    _MAP = {
+        "XAUUSD": "GC=F", "XAGUSD": "SI=F",          # metals (COMEX futures)
+        "BTCUSDT": "BTC-USD", "ETHUSDT": "ETH-USD",  # crypto (Yahoo spot)
+        "SOLUSDT": "SOL-USD", "BNBUSDT": "BNB-USD", "XRPUSDT": "XRP-USD",
+        "US30": "^DJI", "NAS100": "^NDX", "SPX500": "^GSPC",
+        "GER40": "^GDAXI", "UK100": "^FTSE", "JP225": "^N225",
+    }
+
+    def _ticker(self, symbol: str) -> str:
+        if symbol in self._MAP:
+            return self._MAP[symbol]
+        # 6-letter FX pair (EURUSD, NZDUSD, USDCAD, ...) → Yahoo "EURUSD=X"
+        if len(symbol) == 6 and symbol.isalpha():
+            return f"{symbol}=X"
+        return symbol
 
     def fetch(self, symbol: str, timeframe: str, count: int) -> pd.DataFrame:
         import yfinance as yf
-        ticker = self._MAP.get(symbol, symbol)
+        ticker = self._ticker(symbol)
         interval = self._TF.get(timeframe, "1h")
         period = "60d" if interval in ("15m", "1h") else "2y"
         raw = yf.download(ticker, interval=interval, period=period, progress=False,
