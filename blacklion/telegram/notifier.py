@@ -16,8 +16,10 @@ log = get_logger("telegram.notifier")
 
 
 class Notifier:
-    def __init__(self, client: TelegramClient | None = None) -> None:
+    def __init__(self, client: TelegramClient | None = None,
+                 health_provider=None) -> None:
         self.client = client or TelegramClient()
+        self.health_provider = health_provider   # callable → HealthReport (optional)
         self._offset = 0
 
     @property
@@ -71,10 +73,19 @@ class Notifier:
                 self.client.send("📂 <b>Ochiq savdolar:</b>\n" + "\n".join(lines))
         elif cmd in ("digest", "hisobot"):
             self.send_daily_digest(journal)
+        elif cmd in ("health", "holat", "sogliq"):
+            if self.health_provider is not None:
+                self.client.send(fmt.health_message(self.health_provider()))
+            else:
+                self.client.send("ℹ️ Sog'liq monitoringi ulanmagan.")
         elif cmd in ("help", "start", "yordam"):
             self.client.send(
                 "🦁 <b>BLACK LION AI</b>\n"
                 "AI-asosli savdo signallari (dry-run rejimida)\n\n"
                 "/stats — haftalik statistika\n"
                 "/open — ochiq savdolar\n"
+                "/health — bot sog'lig'i\n"
                 "/digest — kunlik hisobot")
+
+    def send_health_alert(self, report) -> None:
+        self.client.send("🚨 <b>Ogohlantirish</b>\n" + fmt.health_message(report))

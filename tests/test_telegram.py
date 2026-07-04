@@ -92,6 +92,18 @@ def test_command_from_allowlisted_chat_is_handled(journal):
     assert handled == 1 and len(fc.sent) == 1 and "HAFTALIK" in fc.sent[0]
 
 
+def test_health_command_uses_provider(journal):
+    from blacklion.monitoring import HealthMonitor
+    mon = HealthMonitor()
+    mon.record_scan(signals=1, errors=0, feed_ok=True)
+    fc = FakeClient(chat_id="100")
+    n = Notifier(fc, health_provider=lambda: mon.snapshot(signals_today=1, open_trades=0))
+    fc._updates = [{"update_id": 8, "message": {"text": "/health",
+                                                "chat": {"id": 100}}}]
+    n.poll_commands(journal)
+    assert "HEALTHY" in fc.sent[0]
+
+
 def test_open_command_lists_trades(journal):
     sid = journal.record_signal(sig())
     journal.record_execution(sid, "T-1", 0.1, 3400.0)

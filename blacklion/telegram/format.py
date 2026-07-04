@@ -73,6 +73,35 @@ def daily_digest(stats: dict, signals_today: int) -> str:
         f"({stats['win_rate']}%) · <b>{stats['total_r']:+.2f}R</b>")
 
 
+_STATUS_EMOJI = {"HEALTHY": "🟢", "DEGRADED": "🟠", "FAILED": "🔴"}
+
+
+def health_message(r) -> str:
+    emo = _STATUS_EMOJI.get(r.status, "⚪")
+    up_h = r.uptime_seconds // 3600
+    up_m = (r.uptime_seconds % 3600) // 60
+    lines = [
+        f"{emo} <b>Holat: {r.status}</b>",
+        f"⏱ Ishlash vaqti: {up_h}s {up_m}d",
+        f"🔁 Oxirgi skan: {r.seconds_since_scan}s oldin"
+        if r.seconds_since_scan is not None else "🔁 Hali skan bo'lmadi",
+        f"📡 Ma'lumot oqimi: {'✅' if r.feed_ok else '❌'}",
+        f"🎯 Bugungi signallar: {r.signals_today} · Ochiq: {r.open_trades}",
+    ]
+    if r.consecutive_errors:
+        lines.append(f"⚠️ Ketma-ket xatolar: {r.consecutive_errors}")
+    res = []
+    if r.cpu_pct is not None:
+        res.append(f"CPU {r.cpu_pct:.0f}%")
+    if r.mem_pct is not None:
+        res.append(f"RAM {r.mem_pct:.0f}%")
+    if r.disk_pct is not None:
+        res.append(f"Disk {r.disk_pct:.0f}%")
+    if res:
+        lines.append("🖥 " + " · ".join(res))
+    return "\n".join(lines)
+
+
 def weekly_stats(stats: dict) -> str:
     return (
         "📊 <b>HAFTALIK HISOBOT</b>\n\n"

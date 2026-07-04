@@ -18,6 +18,7 @@ from .engines.market_structure import MarketStructureEngine
 from .engines.pipeline import SignalPipeline
 from .execution import Broker, ExecutionEngine
 from .journal import Journal
+from .monitoring import HealthMonitor, HealthReport
 from .risk import AccountState, OpenPosition, RiskEngine
 from .telegram import Notifier
 
@@ -32,6 +33,8 @@ class Runtime:
         self.broker = broker
         self.journal = journal or Journal()
         self.notifier = notifier or Notifier()
+        self.monitor = HealthMonitor()
+        self.notifier.health_provider = self.health   # /health command support
         self.pipeline = SignalPipeline()
         self.structure = MarketStructureEngine()
         self.risk = RiskEngine()
@@ -47,14 +50,26 @@ class Runtime:
     def scan_once(self) -> list[int]:
         """Returns the signal ids generated this pass (recorded, maybe executed)."""
         produced: list[int] = []
+        errors = fetched = 0
         for symbol in self.symbols:
             try:
                 sid = self._scan_symbol(symbol)
+                fetched += 1
                 if sid is not None:
                     produced.append(sid)
             except Exception as exc:                     # never let one symbol halt the scan
+                errors += 1
                 log.error("ScanError", symbol=symbol, error=str(exc))
+        # feed is healthy if at least one symbol returned data this pass
+        self.monitor.record_scan(signals=len(produced), errors=errors,
+                                 feed_ok=fetched > 0)
         return produced
+
+    def health(self) -> HealthReport:
+        return self.monitor.snapshot(
+            signals_today=self.journal.signals_today(),
+            open_trades=len(self.journal.open_trades()),
+            scan_interval=int(config.env("BL_SCAN_INTERVAL", "1800")))
 
     def _scan_symbol(self, symbol: str) -> int | None:
         if self.journal.recent_signal_for(symbol, self.cooldown_hours):
@@ -149,6 +164,13 @@ class Runtime:
                 last_scan = now
                 found = self.scan_once()
                 log.info("ScanDone", signals=len(found))
+                # health check + rate-limited alert on trouble (doc 24)
+                report = self.health()
+                if report.status != "HEALTHY":
+                    log.warning("HealthDegraded", status=report.status,
+                                errors=report.consecutive_errors, feed=report.feed_ok)
+                if self.notifier.enabled and self.monitor.should_alert(report):
+                    self.notifier.send_health_alert(report)
             if now - last_outcome >= outcome_interval:
                 last_outcome = now
                 self.check_outcomes()
