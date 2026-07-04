@@ -16,6 +16,7 @@ from .core.logging import get_logger
 from .data.sources import MarketDataSource
 from .engines.market_structure import MarketStructureEngine
 from .engines.pipeline import SignalPipeline
+from .features import FeatureEngineer
 from .execution import Broker, ExecutionEngine
 from .journal import Journal
 from .monitoring import HealthMonitor, HealthReport
@@ -36,6 +37,7 @@ class Runtime:
         self.monitor = HealthMonitor()
         self.notifier.health_provider = self.health   # /health command support
         self.pipeline = SignalPipeline()
+        self.features = FeatureEngineer()
         self.structure = MarketStructureEngine()
         self.risk = RiskEngine()
         self.execution = ExecutionEngine(broker)
@@ -83,6 +85,13 @@ class Runtime:
 
         sig = decision.signal
         sid = self.journal.record_signal(sig)          # record EVERY signal (for AI later)
+        # snapshot the feature vector at signal time → labelled training data (doc 09)
+        try:
+            feats = self.features.extract(symbol, df, direction=sig.direction,
+                                          **self.pipeline.last)
+            self.journal.record_features(sid, feats)
+        except Exception as exc:
+            log.error("FeatureError", symbol=symbol, error=str(exc))
         self.notifier.on_signal(sig, sid, market_ctx=f"{symbol} · {self.entry_tf}")
 
         account = self._account_state()

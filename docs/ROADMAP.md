@@ -7,7 +7,7 @@ Hetzner) · old `analyze` bot keeps running in parallel until BLACK LION is vali
 |---|---|---|---|
 | 1. Foundation | 01–05, 31–32 | Repo, configs, logging, event bus, docker-compose, Journal/SQLite ✅ | **done** |
 | 2. Market Data | 06–08 | Source Protocol + Replay/Yahoo/MT5 sources ✅, indicators, validation, Runtime scan loop ✅ (Timescale store = v2) | **done (feed live); Timescale pending** |
-| 3. Features & Structure | 09–14 | Market Structure ✅, Liquidity ✅, OB ✅, FVG ✅, ICT ✅ (Feature store pending) | **mostly done** |
+| 3. Features & Structure | 09–14 | Market Structure ✅, Liquidity ✅, OB ✅, FVG ✅, ICT ✅, Feature Engineer ✅ (58 features/signal → journal, AI training set) | **done** |
 | 4. Rule Engine | 15 | Confluence scoring + BUY/SELL/NO TRADE + signal pipeline ✅ | **done** |
 | 5. AI + Probability | 16–17 | XGBoost/LightGBM ensemble, calibration, EV gate (needs ≥3–6 months of journalled outcomes to train on; ships after live signal history accumulates) | pending |
 | 6. Risk Engine | 18 | Sizing, daily/weekly loss locks, exposure, correlation ✅ | **done** |

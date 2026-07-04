@@ -33,6 +33,7 @@ class SignalPipeline:
         self.fvg = FVGEngine()
         self.ict = ICTEngine()
         self.rules = RuleEngine()
+        self.last: dict = {}         # last run's engine outputs (for feature capture)
 
     def run(self, symbol: str, df: pd.DataFrame,
             htf_bullish: bool | None = None,
@@ -47,6 +48,10 @@ class SignalPipeline:
                                trend_bullish=structure.trend.bullish, ts=ts)
         decision = self.rules.evaluate(symbol, df, structure, liquidity,
                                        order_block, fvg, ict, htf_bullish=htf_bullish)
+        # stash the engine outputs so the Feature Engineer can snapshot them for
+        # the signal that was just produced (single-threaded runtime)
+        self.last = {"structure": structure, "liquidity": liquidity,
+                     "order_block": order_block, "fvg": fvg, "ict": ict}
         log.info("PipelineComplete", symbol=symbol, decision=decision.decision,
                  confluence=decision.confluence_score)
         return decision

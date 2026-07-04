@@ -37,11 +37,15 @@ CREATE TABLE IF NOT EXISTS signals (
     volume        REAL,
     fill_price    REAL,
     result_r      REAL,
-    closed_at     INTEGER
+    closed_at     INTEGER,
+    features      TEXT                         -- json feature vector (doc 09 → AI)
 );
 CREATE INDEX IF NOT EXISTS idx_signals_status  ON signals(status);
 CREATE INDEX IF NOT EXISTS idx_signals_created ON signals(created_at);
 """
+
+# idempotent column adds for DBs created before a column existed
+_MIGRATIONS = [("features", "TEXT")]
 
 
 class TradeRow(BaseModel):
@@ -66,6 +70,10 @@ class Journal:
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
         with self._conn() as c:
             c.executescript(SCHEMA)
+            existing = {r[1] for r in c.execute("PRAGMA table_info(signals)")}
+            for col, decl in _MIGRATIONS:
+                if col not in existing:
+                    c.execute(f"ALTER TABLE signals ADD COLUMN {col} {decl}")
 
     def _conn(self) -> sqlite3.Connection:
         c = sqlite3.connect(self.path)
@@ -83,6 +91,20 @@ class Journal:
                  sig.tp1, sig.tp2, sig.tp3, sig.rr, sig.confidence,
                  sig.confluence_score, json.dumps(sig.reasons)))
             return int(cur.lastrowid)
+
+    def record_features(self, signal_id: int, features: dict) -> None:
+        with self._conn() as c:
+            c.execute("UPDATE signals SET features=? WHERE id=?",
+                      (json.dumps(features), signal_id))
+
+    def features_dataset(self) -> list[tuple[dict, str, float]]:
+        """(features, status, result_r) for every CLOSED signal that has features —
+        the labelled training set for the AI/Probability engines (docs 16-17)."""
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT features, status, result_r FROM signals "
+                "WHERE features IS NOT NULL AND result_r IS NOT NULL").fetchall()
+        return [(json.loads(r["features"]), r["status"], r["result_r"]) for r in rows]
 
     def record_execution(self, signal_id: int, ticket: str, volume: float,
                          fill_price: float) -> None:
