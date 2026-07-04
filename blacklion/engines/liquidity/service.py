@@ -40,6 +40,7 @@ class LiquidityResult(BaseModel):
     distance: float | None = None    # to nearest pool, in ATR units
     liquidity_score: int
     quality: str
+    confidence: int                  # doc 11 §4 — calibrated 0–100
     pools: list[LiquidityPool] = []
 
 
@@ -117,6 +118,7 @@ class LiquidityEngine:
             nearest_pool=nearest.price if nearest else None,
             distance=round(dist, 3) if dist is not None else None,
             liquidity_score=score, quality=_grade(score),
+            confidence=score,        # calibrated proxy until historical calibration
             pools=pools,
         )
         if swept:

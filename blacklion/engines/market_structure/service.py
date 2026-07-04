@@ -58,6 +58,7 @@ class StructureResult(BaseModel):
     choch_direction: Literal["bullish", "bearish", ""] = ""
     strength: int                    # 0–100
     quality: str                     # A+ / A / B / C / D
+    confidence: int                  # doc 10 §4 — calibrated 0–100
     swings: list[dict] = []
     last_swing_high: float | None = None
     last_swing_low: float | None = None
@@ -178,6 +179,7 @@ class MarketStructureEngine:
             bos=bos, bos_direction=bos_dir,
             choch=choch, choch_direction=choch_dir,
             strength=strength, quality=_grade(strength),
+            confidence=strength,     # structure strength is the confidence proxy
             swings=[{"index": s.index, "price": s.price, "kind": s.kind, "label": s.label}
                     for s in swings[-10:]],
             last_swing_high=last_high.price if last_high else None,

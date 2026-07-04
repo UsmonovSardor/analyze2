@@ -49,3 +49,37 @@ def test_no_kill_zone_outside_windows():
     ts = datetime(2026, 7, 3, 5, 0, tzinfo=timezone.utc)
     res = ENGINE.analyze("TEST", df, swings, trend_bullish=True, ts=ts)
     assert res.kill_zone == ""
+
+
+def test_judas_swing_sweeps_high_then_reverses():
+    df = df_from_closes([108, 110, 112, 114])
+    # last bar wicks above the swing high (120) but closes back below it
+    df.loc[df.index[-1], ["high", "close"]] = [121.0, 118.0]
+    swings = [Swing(0, 120.0, "high"), Swing(1, 100.0, "low")]
+    ts = datetime(2026, 7, 3, 8, 30, tzinfo=timezone.utc)   # inside London KZ
+    res = ENGINE.analyze("TEST", df, swings, trend_bullish=False, ts=ts)
+    assert res.judas_swing
+
+
+def test_amd_phase_reported():
+    df = df_from_closes([100, 101, 100, 101, 100, 101, 100, 101,
+                         100, 101, 100, 101, 100, 101, 100, 101,
+                         100, 101, 100, 101, 100])
+    swings = [Swing(0, 105.0, "high"), Swing(1, 99.0, "low")]
+    res = ENGINE.analyze("TEST", df, swings, trend_bullish=True)
+    assert res.amd_phase in ("Accumulation", "Manipulation", "Distribution")
+
+
+def test_smt_divergence_when_peer_disagrees():
+    df = df_from_closes([100, 101, 102, 103, 104, 106])     # makes a fresh HH
+    peer = df_from_closes([100, 101, 102, 103, 104, 103])   # peer fails to
+    swings = [Swing(0, 106.0, "high"), Swing(1, 100.0, "low")]
+    res = ENGINE.analyze("TEST", df, swings, trend_bullish=True, peer_df=peer)
+    assert res.smt_divergence
+
+
+def test_confidence_present_and_bounded():
+    df = df_from_closes([100, 101, 102])
+    swings = [Swing(0, 120.0, "high"), Swing(1, 100.0, "low")]
+    res = ENGINE.analyze("TEST", df, swings, trend_bullish=True)
+    assert 0 <= res.confidence <= 100

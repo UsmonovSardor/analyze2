@@ -28,6 +28,7 @@ class FairValueGap(BaseModel):
     filled: bool
     score: int
     quality: str
+    confidence: int                  # doc 13 §4 — calibrated 0–100
 
     @property
     def midpoint(self) -> float:
@@ -107,4 +108,4 @@ class FVGEngine:
         score = max(0, min(100, round(score)))
         return FairValueGap(type=kind, index=i, gap_low=lo, gap_high=hi, size=size,
                             filled_pct=round(filled_pct, 3), filled=filled,
-                            score=score, quality=_grade(score))
+                            score=score, quality=_grade(score), confidence=score)

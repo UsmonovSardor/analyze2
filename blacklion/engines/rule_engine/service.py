@@ -9,10 +9,11 @@ only make the system MORE selective, never override a NO TRADE into a trade.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Literal
 
 import pandas as pd
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ...core import config
 from ...core.events import bus
@@ -40,6 +41,7 @@ class Signal(BaseModel):
     confidence: int
     confluence_score: int
     reasons: list[str]
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class RuleDecision(BaseModel):

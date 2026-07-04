@@ -30,6 +30,7 @@ class OrderBlock(BaseModel):
     mitigated: bool
     score: int
     quality: str
+    confidence: int                  # doc 12 §4 — calibrated 0–100
 
     def contains(self, price: float) -> bool:
         return self.price_low <= price <= self.price_high
@@ -98,7 +99,8 @@ class OrderBlockEngine:
                 continue
             blocks.append(OrderBlock(
                 type=ob_type, index=ob_idx, price_low=lo, price_high=hi,
-                fresh=fresh, mitigated=touched, score=score, quality=_grade(score)))
+                fresh=fresh, mitigated=touched, score=score, quality=_grade(score),
+                confidence=score))
 
         # keep most recent, dedup overlapping zones, rank fresh + score
         blocks = self._dedup(blocks)
