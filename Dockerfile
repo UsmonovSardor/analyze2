@@ -3,8 +3,9 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY pyproject.toml .
 COPY blacklion ./blacklion
-# Base deps only (PaperBroker + Yahoo dry-run). Add ".[mt5]" once a broker is wired.
-RUN pip install --no-cache-dir .
+# Includes the [mt5] extra (mt5linux bridge client) so the bot can read candles
+# from the Wine MT5 terminal; still runs pure dry-run when BL_MT5_DATA is unset.
+RUN pip install --no-cache-dir ".[mt5]"
 COPY configs ./configs
 
 ENV PYTHONUNBUFFERED=1

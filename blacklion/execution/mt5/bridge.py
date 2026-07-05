@@ -1,9 +1,11 @@
 """MetaTrader 5 broker adapter (SRS doc 19 §15).
 
 The MT5 Python package (`MetaTrader5`) is Windows-only. On the Hetzner Linux
-server the terminal runs under Wine inside the `mt5` container, exposing an rpyc
-service on MT5_BRIDGE_PORT; this adapter is a thin rpyc client. On a native
-Windows host, set BL_MT5_NATIVE=1 to import `MetaTrader5` directly instead.
+server the terminal runs under Wine inside the `mt5` container (gmag11 image),
+which exposes an rpyc classic server on MT5_BRIDGE_PORT; this adapter connects
+through the `mt5linux` client, which proxies every call/constant to the remote
+`MetaTrader5` module and returns results by value (numpy arrays survive intact).
+On a native Windows host, set BL_MT5_NATIVE=1 to import `MetaTrader5` directly.
 
 Both paths satisfy the same Broker Protocol as PaperBroker, so the Execution
 Engine is identical in test and production. Requires broker credentials
@@ -34,8 +36,7 @@ class MT5Broker:
         self._login = os.getenv("MT5_LOGIN", "")
         self._password = os.getenv("MT5_PASSWORD", "")
         self._server = os.getenv("MT5_SERVER", "")
-        self._mt5 = None            # the MetaTrader5 module (native or rpyc-proxied)
-        self._conn = None           # rpyc connection
+        self._mt5 = None            # the MetaTrader5 module (native or mt5linux proxy)
 
     # ── connection ────────────────────────────────────────────────────────
     def connect(self) -> bool:
@@ -58,10 +59,8 @@ class MT5Broker:
         if self._native:                               # pragma: no cover - Windows only
             import MetaTrader5 as mt5
             return mt5
-        import rpyc                                     # pragma: no cover - needs bridge
-        self._conn = rpyc.connect(self._host, self._port,
-                                  config={"allow_all_attrs": True})
-        return self._conn.root
+        from mt5linux import MetaTrader5              # pragma: no cover - needs bridge
+        return MetaTrader5(host=self._host, port=self._port)
 
     def is_connected(self) -> bool:                    # pragma: no cover
         return self._mt5 is not None and bool(self._mt5.terminal_info())

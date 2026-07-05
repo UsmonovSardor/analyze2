@@ -19,7 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.4", "mypy>=1.10"]
-mt5 = ["rpyc>=6.0"]
+mt5 = ["mt5linux>=1.0.3"]   # bridge client to the Wine MT5 terminal (pulls rpyc)
 # Postgres/Timescale + Redis wiring (v2; v1 dry-run uses SQLite + in-process bus)
 infra = ["redis>=5.0", "SQLAlchemy>=2.0", "psycopg2-binary>=2.9", "alembic>=1.13"]
 

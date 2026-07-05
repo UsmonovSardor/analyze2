@@ -3,10 +3,17 @@
 Selects a broker + market-data source from the environment, then runs the scan
 loop (Runtime): source → pipeline → risk → execution → journal → outcomes.
 
-  - MT5_LOGIN set  → MT5 bridge broker + MT5 candle source (live/demo terminal)
-  - otherwise      → PaperBroker + YahooSource (safe dry-run, no credentials);
-                     every signal is still journalled so history accumulates for
-                     the AI/Probability engines that train later.
+Data feed and execution are decoupled — the safe default sends signals only:
+
+  - BL_MT5_DATA=1     → MT5 candle source (real broker data via the Wine bridge)
+  - BL_MT5_EXECUTE=1  → MT5 broker places demo/live orders (edge unproven → demo)
+  - neither / default → YahooSource + PaperBroker (pure dry-run, no credentials)
+
+With BL_MT5_DATA=1 alone, the bot analyses real MT5 candles but routes through
+PaperBroker: it journals + Telegrams signals and places NO orders. Every signal
+is journalled regardless, so history accumulates for the AI engines that train
+later. If the MT5 bridge is unreachable, we fall back to Yahoo + PaperBroker
+rather than crash.
 """
 from __future__ import annotations
 
@@ -21,19 +28,34 @@ from .runtime import Runtime
 log = get_logger("main")
 
 
-def build_stack():
-    """Return (broker, source, kind) chosen from the environment."""
-    if os.getenv("MT5_LOGIN"):
-        from .data.sources import MT5Source
-        from .execution.mt5 import MT5Broker
-        broker = MT5Broker()
-        broker.connect()
-        # the source shares the broker's connected MT5 handle
-        return broker, MT5Source(getattr(broker, "_mt5", None)), "mt5"
+def _paper_stack():
     from .data.sources import YahooSource
     broker = PaperBroker()
     broker.connect()
     return broker, YahooSource(), "paper"
+
+
+def build_stack():
+    """Return (broker, source, kind) chosen from the environment."""
+    want_data = os.getenv("BL_MT5_DATA") == "1"
+    want_exec = os.getenv("BL_MT5_EXECUTE") == "1"
+    if not (want_data or want_exec):
+        return _paper_stack()
+
+    from .data.sources import MT5Source, YahooSource
+    from .execution.mt5 import MT5Broker
+    mt5 = MT5Broker()
+    if not mt5.connect():
+        log.error("MT5Unavailable", note="bridge down — falling back to Yahoo + Paper")
+        return _paper_stack()
+
+    # MT5 candles when asked; keep the connected handle even in data-only mode.
+    source = MT5Source(getattr(mt5, "_mt5", None)) if want_data else YahooSource()
+    if want_exec:
+        return mt5, source, "mt5-live"          # demo/live orders through MT5
+    broker = PaperBroker()
+    broker.connect()
+    return broker, source, "mt5-data"           # real feed, signals only, no orders
 
 
 def main() -> None:
@@ -45,8 +67,14 @@ def main() -> None:
              symbols=len(runtime.symbols),
              version=__import__("blacklion").__version__)
     if kind == "paper":
-        log.info("DryRun", note="no MT5 credentials — PaperBroker + Yahoo feed, "
-                 "signals journalled, no live orders")
+        log.info("DryRun", note="PaperBroker + Yahoo feed — signals journalled, "
+                 "no live orders")
+    elif kind == "mt5-data":
+        log.info("SignalsOnly", note="MT5 feed + PaperBroker — real candles, "
+                 "signals to Telegram, NO orders (edge unproven)")
+    elif kind == "mt5-live":
+        log.warning("LiveExecution", note="MT5 broker placing orders — ensure this "
+                    "is a DEMO account (edge unproven)")
 
     scan = int(config.env("BL_SCAN_INTERVAL", "1800"))
     outcome = int(config.env("BL_OUTCOME_INTERVAL", "300"))
