@@ -1,5 +1,6 @@
 # SRS docs 06/08 — symbol registry + broker-name normalization.
 symbols:
+  # ── Forex majors + crosses (Yahoo <PAIR>=X) ───────────────────────────
   EURUSD: {market: forex,     digits: 5, max_spread_points: 15}
   GBPUSD: {market: forex,     digits: 5, max_spread_points: 20}
   USDJPY: {market: forex,     digits: 3, max_spread_points: 15}
@@ -7,10 +8,21 @@ symbols:
   NZDUSD: {market: forex,     digits: 5, max_spread_points: 18}
   USDCAD: {market: forex,     digits: 5, max_spread_points: 18}
   USDCHF: {market: forex,     digits: 5, max_spread_points: 18}
+  EURJPY: {market: forex,     digits: 3, max_spread_points: 18}
+  GBPJPY: {market: forex,     digits: 3, max_spread_points: 22}
+  EURGBP: {market: forex,     digits: 5, max_spread_points: 18}
+  AUDJPY: {market: forex,     digits: 3, max_spread_points: 20}
+  # ── Metals ────────────────────────────────────────────────────────────
   XAUUSD: {market: commodity, digits: 2, max_spread_points: 35}
   XAGUSD: {market: commodity, digits: 3, max_spread_points: 40}
+  # ── Crypto (Yahoo <COIN>-USD, 24/7 → more signals) ────────────────────
   BTCUSDT: {market: crypto,   digits: 2, max_spread_points: 0}
   ETHUSDT: {market: crypto,   digits: 2, max_spread_points: 0}
+  SOLUSDT: {market: crypto,   digits: 2, max_spread_points: 0}
+  BNBUSDT: {market: crypto,   digits: 2, max_spread_points: 0}
+  XRPUSDT: {market: crypto,   digits: 4, max_spread_points: 0}
+  ADAUSDT: {market: crypto,   digits: 4, max_spread_points: 0}
+  DOGEUSDT: {market: crypto,  digits: 5, max_spread_points: 0}
 
 # Broker symbol → internal symbol (doc 08 §6)
 aliases:

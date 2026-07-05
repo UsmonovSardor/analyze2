@@ -21,6 +21,7 @@ def rt(tmp_path) -> Runtime:
     broker.connect()
     r = Runtime(src, broker, journal=Journal(db_path=str(tmp_path / "j.db")))
     r.symbols = ["EURUSD"]                # focus the watchlist for the test
+    r.scan_tfs = [("H1", "H4")]           # single TF for deterministic tests
     return r
 
 
@@ -93,3 +94,30 @@ def test_check_outcomes_closes_at_tp3(rt):
     rt.check_outcomes()
     row = rt.journal.get(sid)
     assert row.status == "tp3" and row.result_r == 5.0
+
+
+def test_multi_timeframe_scan(tmp_path):
+    from blacklion.engines.rule_engine import RuleDecision, Signal
+    frame = df_from_ohlc(_flat(1.1000, 300))
+    src = ReplaySource({"EURUSD:M15": frame, "EURUSD:H1": frame, "EURUSD:H4": frame})
+    broker = PaperBroker(prices={"EURUSD": 1.1000}, spread_points={"EURUSD": 5})
+    broker.connect()
+    r = Runtime(src, broker, journal=Journal(db_path=str(tmp_path / "j.db")))
+    r.symbols = ["EURUSD"]
+    r.scan_tfs = [("M15", "H1"), ("H1", "H4")]   # two timeframes
+
+    sig = Signal(symbol="EURUSD", direction="BUY", entry=1.1, stop_loss=1.098,
+                 tp1=1.101, tp2=1.105, tp3=1.11, rr=2.5, confidence=88,
+                 confluence_score=90, reasons=["x"])
+    r.pipeline.run = lambda *a, **k: RuleDecision(
+        symbol="EURUSD", decision="BUY", confluence_score=90, confidence=88,
+        reasons=["x"], signal=sig)
+    ids = r.scan_once()
+    assert len(ids) == 2                          # one signal per timeframe
+    tfs = {r.journal.get(i).timeframe for i in ids}
+    assert tfs == {"M15", "H1"}                   # recorded with their entry TF
+
+
+def test_parse_timeframes():
+    assert Runtime._parse_tfs("M15:H1,H1:H4") == [("M15", "H1"), ("H1", "H4")]
+    assert Runtime._parse_tfs("") == [("H1", "H4")]

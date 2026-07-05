@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS signals (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at    INTEGER NOT NULL,
     symbol        TEXT NOT NULL,
+    timeframe     TEXT NOT NULL DEFAULT 'H1',   -- entry TF the signal fired on
     direction     TEXT NOT NULL,
     entry         REAL, stop_loss REAL, tp1 REAL, tp2 REAL, tp3 REAL,
     rr            REAL,
@@ -45,12 +46,13 @@ CREATE INDEX IF NOT EXISTS idx_signals_created ON signals(created_at);
 """
 
 # idempotent column adds for DBs created before a column existed
-_MIGRATIONS = [("features", "TEXT")]
+_MIGRATIONS = [("features", "TEXT"), ("timeframe", "TEXT NOT NULL DEFAULT 'H1'")]
 
 
 class TradeRow(BaseModel):
     id: int
     symbol: str
+    timeframe: str = "H1"
     direction: Literal["BUY", "SELL"]
     entry: float
     stop_loss: float
@@ -81,14 +83,14 @@ class Journal:
         return c
 
     # ── writes ────────────────────────────────────────────────────────────
-    def record_signal(self, sig: Signal) -> int:
+    def record_signal(self, sig: Signal, timeframe: str = "H1") -> int:
         with self._conn() as c:
             cur = c.execute(
-                "INSERT INTO signals(created_at,symbol,direction,entry,stop_loss,"
+                "INSERT INTO signals(created_at,symbol,timeframe,direction,entry,stop_loss,"
                 "tp1,tp2,tp3,rr,confidence,confluence,reasons) "
-                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-                (int(time.time()), sig.symbol, sig.direction, sig.entry, sig.stop_loss,
-                 sig.tp1, sig.tp2, sig.tp3, sig.rr, sig.confidence,
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (int(time.time()), sig.symbol, timeframe, sig.direction, sig.entry,
+                 sig.stop_loss, sig.tp1, sig.tp2, sig.tp3, sig.rr, sig.confidence,
                  sig.confluence_score, json.dumps(sig.reasons)))
             return int(cur.lastrowid)
 
@@ -150,11 +152,16 @@ class Journal:
                              "AND result_r IS NOT NULL", (cutoff,)).fetchall()
         return round(sum(r[0] for r in rows), 4)
 
-    def recent_signal_for(self, symbol: str, hours: int) -> bool:
+    def recent_signal_for(self, symbol: str, hours: int,
+                          timeframe: str | None = None) -> bool:
         cutoff = int(time.time()) - hours * 3600
+        q = "SELECT COUNT(*) FROM signals WHERE symbol=? AND created_at>?"
+        params: list = [symbol, cutoff]
+        if timeframe is not None:            # per-(symbol,TF) cooldown for multi-TF scans
+            q += " AND timeframe=?"
+            params.append(timeframe)
         with self._conn() as c:
-            n = c.execute("SELECT COUNT(*) FROM signals WHERE symbol=? AND created_at>?",
-                          (symbol, cutoff)).fetchone()[0]
+            n = c.execute(q, params).fetchone()[0]
         return n > 0
 
     def stats(self, days: int = 7) -> dict:
@@ -175,7 +182,7 @@ class Journal:
     @staticmethod
     def _row(r: sqlite3.Row) -> TradeRow:
         return TradeRow(
-            id=r["id"], symbol=r["symbol"], direction=r["direction"],
-            entry=r["entry"], stop_loss=r["stop_loss"],
+            id=r["id"], symbol=r["symbol"], timeframe=r["timeframe"],
+            direction=r["direction"], entry=r["entry"], stop_loss=r["stop_loss"],
             tp1=r["tp1"], tp2=r["tp2"], tp3=r["tp3"], status=r["status"],
             ticket=r["ticket"], volume=r["volume"], result_r=r["result_r"])

@@ -42,27 +42,43 @@ class Runtime:
         self.risk = RiskEngine()
         self.execution = ExecutionEngine(broker)
         self.symbols: list[str] = list(config.load("symbols")["symbols"])
-        self.entry_tf: str = config.engine("market_structure").get("entry_tf", "H1")
-        self.context_tf: str = config.engine("market_structure").get("context_tf", "H4")
+        # Multi-timeframe scan: each (entry, context) pair is scanned per symbol,
+        # so M15 setups (frequent) accumulate history far faster than H1 alone.
+        self.scan_tfs: list[tuple[str, str]] = self._parse_tfs(
+            config.env("BL_SCAN_TIMEFRAMES", "M15:H1,H1:H4"))
         self.candles: int = 300
         self.balance: float = float(config.env("BL_BALANCE", "10000"))
         self.cooldown_hours: int = int(config.env("BL_COOLDOWN_HOURS", "3"))
 
-    # ── one scan across the watchlist ─────────────────────────────────────
+    @staticmethod
+    def _parse_tfs(spec: str) -> list[tuple[str, str]]:
+        pairs = []
+        for part in spec.split(","):
+            if ":" in part:
+                e, c = part.strip().split(":")
+                pairs.append((e.strip(), c.strip()))
+        return pairs or [("H1", "H4")]
+
+    @property
+    def entry_tf(self) -> str:                     # primary TF (outcome-check default)
+        return self.scan_tfs[0][0]
+
+    # ── one scan across the watchlist × timeframes ────────────────────────
     def scan_once(self) -> list[int]:
         """Returns the signal ids generated this pass (recorded, maybe executed)."""
         produced: list[int] = []
         errors = fetched = 0
         for symbol in self.symbols:
-            try:
-                sid = self._scan_symbol(symbol)
-                fetched += 1
-                if sid is not None:
-                    produced.append(sid)
-            except Exception as exc:                     # never let one symbol halt the scan
-                errors += 1
-                log.error("ScanError", symbol=symbol, error=str(exc))
-        # feed is healthy if at least one symbol returned data this pass
+            for entry_tf, context_tf in self.scan_tfs:
+                try:
+                    sid = self._scan_symbol(symbol, entry_tf, context_tf)
+                    fetched += 1
+                    if sid is not None:
+                        produced.append(sid)
+                except Exception as exc:             # never let one symbol/TF halt the scan
+                    errors += 1
+                    log.error("ScanError", symbol=symbol, tf=entry_tf, error=str(exc))
+        # feed is healthy if at least one symbol/TF returned data this pass
         self.monitor.record_scan(signals=len(produced), errors=errors,
                                  feed_ok=fetched > 0)
         return produced
@@ -73,18 +89,19 @@ class Runtime:
             open_trades=len(self.journal.open_trades()),
             scan_interval=int(config.env("BL_SCAN_INTERVAL", "1800")))
 
-    def _scan_symbol(self, symbol: str) -> int | None:
-        if self.journal.recent_signal_for(symbol, self.cooldown_hours):
+    def _scan_symbol(self, symbol: str, entry_tf: str, context_tf: str) -> int | None:
+        # per-(symbol,TF) cooldown so M15 and H1 don't block each other
+        if self.journal.recent_signal_for(symbol, self.cooldown_hours, timeframe=entry_tf):
             return None
-        df = self.source.fetch(symbol, self.entry_tf, self.candles)
-        htf = self.source.fetch(symbol, self.context_tf, self.candles)
+        df = self.source.fetch(symbol, entry_tf, self.candles)
+        htf = self.source.fetch(symbol, context_tf, self.candles)
         htf_bullish = self.structure.analyze(symbol, htf).trend.bullish
         decision = self.pipeline.run(symbol, df, htf_bullish=htf_bullish)
         if decision.signal is None:
             return None
 
         sig = decision.signal
-        sid = self.journal.record_signal(sig)          # record EVERY signal (for AI later)
+        sid = self.journal.record_signal(sig, timeframe=entry_tf)   # record EVERY signal
         # snapshot the feature vector at signal time → labelled training data (doc 09)
         try:
             feats = self.features.extract(symbol, df, direction=sig.direction,
@@ -92,7 +109,7 @@ class Runtime:
             self.journal.record_features(sid, feats)
         except Exception as exc:
             log.error("FeatureError", symbol=symbol, error=str(exc))
-        self.notifier.on_signal(sig, sid, market_ctx=f"{symbol} · {self.entry_tf}")
+        self.notifier.on_signal(sig, sid, market_ctx=f"{symbol} · {entry_tf}")
 
         account = self._account_state()
         risk = self.risk.evaluate(sig, account)
@@ -115,14 +132,15 @@ class Runtime:
         # Price of record is the DATA SOURCE (Yahoo/MT5), not the broker — in
         # dry-run the PaperBroker has no quotes. Fetch each symbol's latest bar
         # once per cycle and use its high/low so intrabar TP/SL hits are caught.
-        cache: dict[str, tuple[float, float]] = {}
+        cache: dict[tuple[str, str], tuple[float, float]] = {}
         for row in self.journal.open_trades():
             try:
-                if row.symbol not in cache:
-                    df = self.source.fetch(row.symbol, self.entry_tf, 3)
-                    cache[row.symbol] = (float(df["high"].iloc[-1]),
-                                         float(df["low"].iloc[-1]))
-                hi, lo = cache[row.symbol]
+                key = (row.symbol, row.timeframe)      # track on the trade's own TF
+                if key not in cache:
+                    df = self.source.fetch(row.symbol, row.timeframe, 3)
+                    cache[key] = (float(df["high"].iloc[-1]),
+                                  float(df["low"].iloc[-1]))
+                hi, lo = cache[key]
                 self._resolve(row, hi, lo)
             except Exception as exc:
                 log.error("OutcomeError", id=row.id, error=str(exc))

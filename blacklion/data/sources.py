@@ -69,6 +69,7 @@ class YahooSource:                    # pragma: no cover - network dependent
         "XAUUSD": "GC=F", "XAGUSD": "SI=F",          # metals (COMEX futures)
         "BTCUSDT": "BTC-USD", "ETHUSDT": "ETH-USD",  # crypto (Yahoo spot)
         "SOLUSDT": "SOL-USD", "BNBUSDT": "BNB-USD", "XRPUSDT": "XRP-USD",
+        "ADAUSDT": "ADA-USD", "DOGEUSDT": "DOGE-USD",
         "US30": "^DJI", "NAS100": "^NDX", "SPX500": "^GSPC",
         "GER40": "^GDAXI", "UK100": "^FTSE", "JP225": "^N225",
     }
