@@ -1,6 +1,7 @@
-# v1 dry-run deploy — just the bot (PaperBroker + Yahoo feed + SQLite journal +
-# Telegram). No Postgres/Redis/MT5 needed yet; those live in docker-compose.full.yml
-# and get wired in when a broker / Timescale is actually used.
+# v1 deploy — the bot plus an optional MT5 Wine terminal for real broker candles.
+# Default mode is still safe: unless BL_MT5_DATA=1 is set in .env the bot ignores
+# the mt5 service and runs pure Yahoo + PaperBroker dry-run. Postgres/Redis live in
+# docker-compose.full.yml and get wired in later.
 services:
   bot:
     build: .
@@ -12,6 +13,26 @@ services:
     volumes:
       - ./configs:/app/configs:ro
       - bl_data:/data
+    depends_on:
+      - mt5                          # start order only; bot tolerates mt5 not-ready
+
+  # MetaTrader 5 terminal under Wine (gmag11 image). Exposes an rpyc classic bridge
+  # on :8001 (internal only) that the bot reaches at mt5:8001 via mt5linux. Web VNC
+  # on :3000 is bound to localhost — log the terminal into the broker once through
+  # an SSH tunnel, and the session persists in the mt5_config volume.
+  mt5:
+    image: gmag11/metatrader5_vnc
+    restart: unless-stopped
+    environment:
+      CUSTOM_USER: ${MT5_VNC_USER:-blacklion}
+      PASSWORD: ${MT5_VNC_PASSWORD:-blacklion}
+    ports:
+      - "127.0.0.1:3000:3000"        # web VNC — localhost only, reach via SSH tunnel
+    volumes:
+      - mt5_config:/config
+    shm_size: 512m                   # Wine/X needs shared memory
+    mem_limit: 1600m                 # cap so it can't OOM the bot / old analyze bot
 
 volumes:
   bl_data:
+  mt5_config:
