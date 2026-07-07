@@ -143,7 +143,15 @@ class Runtime:
                 hi, lo = cache[key]
                 self._resolve(row, hi, lo)
             except Exception as exc:
-                log.error("OutcomeError", id=row.id, error=str(exc))
+                # A symbol that left the watchlist (e.g. crypto after the switch
+                # to the MT5 feed, which has none) can never be priced again —
+                # expire it once instead of erroring every cycle forever.
+                if row.symbol not in self.symbols:
+                    self.journal.close_signal(row.id, "expired", 0.0)
+                    log.info("OutcomeExpired", id=row.id, symbol=row.symbol,
+                             reason="symbol no longer in watchlist")
+                else:
+                    log.error("OutcomeError", id=row.id, error=str(exc))
 
     def _resolve(self, row, hi: float, lo: float) -> None:
         long = row.direction == "BUY"
