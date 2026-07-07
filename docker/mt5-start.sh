@@ -105,8 +105,12 @@ if ! is_wine_python_package_installed "MetaTrader5==$metatrader_version"; then
 fi
 # Install mt5linux library in Windows if not installed
 show_message "[6/7] Checking and installing mt5linux library in Windows if necessary"
-if ! is_wine_python_package_installed "mt5linux==0.1.9"; then
-    $wine_executable python -m pip install --no-cache-dir "mt5linux==0.1.9"
+# Wine side stays unpinned: the generated rpyc server.py is self-contained and
+# only needs rpyc (+ MetaTrader5) in the Wine python, both of which the default
+# install already provides. Pinning 0.1.9 here would drag in its frozen
+# requirements.txt (twine/keyring/cryptography) and fail under Wine.
+if ! is_wine_python_package_installed "mt5linux"; then
+    $wine_executable python -m pip install --no-cache-dir "mt5linux>=0.1.9"
 fi
 
 # Install python-dateutil if needed (datetime is built-in, but dateutil adds features)

@@ -19,8 +19,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.4", "mypy>=1.10"]
-mt5 = ["mt5linux==0.1.9"]   # bridge client — pinned to match the mt5 container's
-                            # server (the Wine image's [7/7] launcher needs 0.1.9)
+# mt5linux 0.1.9's own requirements.txt is a frozen pip-freeze (twine, keyring,
+# numpy==1.21.4 …) that can't co-resolve with our stack, so it's installed
+# --no-deps in the Dockerfile. Here we only declare its real runtime need: rpyc
+# (client uses rpyc.classic; kept on 5.x to match the Wine server's rpyc 5.2.3).
+mt5 = ["rpyc>=5,<6"]
 # Postgres/Timescale + Redis wiring (v2; v1 dry-run uses SQLite + in-process bus)
 infra = ["redis>=5.0", "SQLAlchemy>=2.0", "psycopg2-binary>=2.9", "alembic>=1.13"]
 
