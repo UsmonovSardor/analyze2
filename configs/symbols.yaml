@@ -1,6 +1,9 @@
 # SRS docs 06/08 — symbol registry + broker-name normalization.
+# Feed = MetaTrader5 (MetaQuotes-Demo). That server has no crypto, so the
+# watchlist is forex majors/crosses + metals + major stock indices, all
+# verified present on the demo server.
 symbols:
-  # ── Forex majors + crosses (Yahoo <PAIR>=X) ───────────────────────────
+  # ── Forex majors + crosses ────────────────────────────────────────────
   EURUSD: {market: forex,     digits: 5, max_spread_points: 15}
   GBPUSD: {market: forex,     digits: 5, max_spread_points: 20}
   USDJPY: {market: forex,     digits: 3, max_spread_points: 15}
@@ -15,22 +18,22 @@ symbols:
   # ── Metals ────────────────────────────────────────────────────────────
   XAUUSD: {market: commodity, digits: 2, max_spread_points: 35}
   XAGUSD: {market: commodity, digits: 3, max_spread_points: 40}
-  # ── Crypto (Yahoo <COIN>-USD, 24/7 → more signals) ────────────────────
-  BTCUSDT: {market: crypto,   digits: 2, max_spread_points: 0}
-  ETHUSDT: {market: crypto,   digits: 2, max_spread_points: 0}
-  SOLUSDT: {market: crypto,   digits: 2, max_spread_points: 0}
-  BNBUSDT: {market: crypto,   digits: 2, max_spread_points: 0}
-  XRPUSDT: {market: crypto,   digits: 4, max_spread_points: 0}
-  ADAUSDT: {market: crypto,   digits: 4, max_spread_points: 0}
-  DOGEUSDT: {market: crypto,  digits: 5, max_spread_points: 0}
+  # ── Stock indices (MetaQuotes-Demo names; digits from symbol_info) ─────
+  US500:  {market: index,     digits: 2, max_spread_points: 60}   # S&P 500
+  US30:   {market: index,     digits: 2, max_spread_points: 80}   # Dow Jones
+  USTEC:  {market: index,     digits: 2, max_spread_points: 80}   # Nasdaq 100
+  DE40:   {market: index,     digits: 2, max_spread_points: 80}   # DAX
+  JPN225: {market: index,     digits: 0, max_spread_points: 80}   # Nikkei 225
+  UK100:  {market: index,     digits: 1, max_spread_points: 60}   # FTSE 100
 
 # Broker symbol → internal symbol (doc 08 §6)
 aliases:
   GOLD: XAUUSD
   XAUUSD.r: XAUUSD
   XAUUSDm: XAUUSD
-  GER40.cash: GER40
-  BTCUSD: BTCUSDT
+  SPX500: US500
+  NAS100: USTEC
+  GER40: DE40
 
 timeframes: [M1, M5, M15, M30, H1, H4, D1, W1, MN]
 
