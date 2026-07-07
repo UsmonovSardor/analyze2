@@ -30,6 +30,9 @@ services:
       - "127.0.0.1:3000:3000"        # web VNC — localhost only, reach via SSH tunnel
     volumes:
       - mt5_config:/config
+      # Patched start.sh pins mt5linux==0.1.9 (upstream unpinned -> 1.0.3 breaks
+      # the `-w` server-start switch). See docker/mt5-start.sh.
+      - ./docker/mt5-start.sh:/Metatrader/start.sh:ro
     shm_size: 512m                   # Wine/X needs shared memory
     mem_limit: 1600m                 # cap so it can't OOM the bot / old analyze bot
 
