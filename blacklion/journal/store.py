@@ -63,6 +63,8 @@ class TradeRow(BaseModel):
     ticket: str | None = None
     volume: float | None = None
     result_r: float | None = None
+    created_at: int | None = None
+    closed_at: int | None = None
 
 
 class Journal:
@@ -195,4 +197,5 @@ class Journal:
             id=r["id"], symbol=r["symbol"], timeframe=r["timeframe"],
             direction=r["direction"], entry=r["entry"], stop_loss=r["stop_loss"],
             tp1=r["tp1"], tp2=r["tp2"], tp3=r["tp3"], status=r["status"],
-            ticket=r["ticket"], volume=r["volume"], result_r=r["result_r"])
+            ticket=r["ticket"], volume=r["volume"], result_r=r["result_r"],
+            created_at=r["created_at"], closed_at=r["closed_at"])

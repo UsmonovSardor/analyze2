@@ -10,6 +10,7 @@ from ..core.logging import get_logger
 from ..engines.rule_engine import Signal
 from ..journal import Journal, TradeRow
 from . import format as fmt
+from .chart import render_signal_chart
 from .client import TelegramClient
 
 log = get_logger("telegram.notifier")
@@ -27,8 +28,14 @@ class Notifier:
         return self.client.configured
 
     # ── push events ───────────────────────────────────────────────────────
-    def on_signal(self, sig: Signal, sig_id: int, market_ctx: str = "") -> None:
-        self.client.send(fmt.signal_message(sig, sig_id, market_ctx))
+    def on_signal(self, sig: Signal, sig_id: int, df=None,
+                  timeframe: str = "H1", market_ctx: str = "") -> None:
+        msg = fmt.signal_message(sig, sig_id, market_ctx)
+        img = render_signal_chart(sig, df, timeframe) if df is not None else None
+        if img and hasattr(self.client, "send_photo"):
+            self.client.send_photo(img, caption=msg)
+        else:
+            self.client.send(msg)
 
     def on_outcome(self, row: TradeRow, status: str, result_r: float | None = None) -> None:
         self.client.send(fmt.outcome_message(row, status, result_r))

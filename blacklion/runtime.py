@@ -114,7 +114,8 @@ class Runtime:
             self.journal.record_features(sid, feats)
         except Exception as exc:
             log.error("FeatureError", symbol=symbol, error=str(exc))
-        self.notifier.on_signal(sig, sid, market_ctx=f"{symbol} · {entry_tf}")
+        self.notifier.on_signal(sig, sid, df=df, timeframe=entry_tf,
+                                market_ctx=f"{symbol} · {entry_tf}")
 
         account = self._account_state()
         risk = self.risk.evaluate(sig, account)

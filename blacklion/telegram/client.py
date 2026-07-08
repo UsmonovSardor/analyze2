@@ -64,6 +64,32 @@ class TelegramClient:
             res = self._call("sendMessage", payload)
         return res["result"]["message_id"] if res and res.get("ok") else None
 
+    def send_photo(self, image: bytes, caption: str = "",
+                   chat_id: str | None = None) -> int | None:
+        """Send a PNG with an HTML caption. Telegram caps captions at 1024 chars,
+        so a longer message is sent as a follow-up text instead of being cut."""
+        if not self.token:
+            log.info("TelegramNotConfigured", method="sendPhoto",
+                     preview=str(caption)[:120])
+            return None
+        cap, overflow = (caption, "") if len(caption) <= 1024 else ("", caption)
+        try:
+            r = requests.post(
+                _API.format(token=self.token, method="sendPhoto"),
+                data={"chat_id": chat_id or self.chat_id, "caption": cap,
+                      "parse_mode": "HTML"},
+                files={"photo": ("signal.png", image, "image/png")}, timeout=30)
+            body = r.json() if r.content else {}
+            if not r.ok:
+                log.warning("TelegramError", method="sendPhoto", status=r.status_code,
+                            desc=str(body.get("description", ""))[:150])
+        except requests.RequestException as exc:
+            log.warning("TelegramNetworkError", method="sendPhoto", error=str(exc))
+            return None
+        if overflow:
+            self.send(overflow, chat_id=chat_id)
+        return body["result"]["message_id"] if body.get("ok") else None
+
     def get_updates(self, offset: int, timeout: int = 20) -> list[dict]:
         res = self._call("getUpdates",
                          {"offset": offset, "timeout": timeout,

@@ -5,9 +5,34 @@ No I/O, so every template is unit-tested without a network.
 """
 from __future__ import annotations
 
+import time
+from datetime import datetime, timedelta, timezone
+
+from ..core import config
 from ..engines.rule_engine import Signal
 from ..journal import TradeRow
 from .client import esc
+
+
+def _local(epoch: int | None) -> datetime | None:
+    """Epoch → tz-aware datetime in the display timezone (default UTC+5 Tashkent,
+    matching the user's Telegram clock). Override with BL_TZ_OFFSET_HOURS."""
+    if not epoch:
+        return None
+    off = float(config.env("BL_TZ_OFFSET_HOURS", "5"))
+    return datetime.fromtimestamp(int(epoch), tz=timezone(timedelta(hours=off)))
+
+
+def _dur(seconds: float) -> str:
+    """Compact Uzbek duration: kun / soat / daqiqa."""
+    mins = int(seconds) // 60
+    hrs, mins = divmod(mins, 60)
+    days, hrs = divmod(hrs, 24)
+    if days:
+        return f"{days}k {hrs}s"
+    if hrs:
+        return f"{hrs}s {mins}d"
+    return f"{mins}d"
 
 
 def _bar(score: int) -> str:
@@ -55,13 +80,27 @@ _OUTCOME_LABEL = {
 }
 
 
+# terminal = trade fully closed; tp1/tp2 are partial scale-outs, runner still live
+_TERMINAL = {"tp3", "stopped", "breakeven", "expired"}
+
+
 def outcome_message(row: TradeRow, status: str, result_r: float | None = None) -> str:
     label = _OUTCOME_LABEL.get(status, f"<b>{esc(status)}</b>")
-    txt = f"{label}\n#{row.id} <b>{esc(row.symbol)}</b> · {row.direction}"
+    tf = f" · {esc(row.timeframe)}" if getattr(row, "timeframe", None) else ""
+    lines = [label, f"#{row.id} <b>{esc(row.symbol)}</b> · {row.direction}{tf}"]
     if result_r is not None:
         emo = "🟢" if result_r > 0 else ("⚪" if abs(result_r) < 0.05 else "🔴")
-        txt += f"\n{emo} Natija: <b>{result_r:+.2f}R</b>"
-    return txt
+        tag = "Yakuniy natija" if status in _TERMINAL else "Bookqilingan"
+        lines.append(f"{emo} {tag}: <b>{result_r:+.2f}R</b>")
+    opened = _local(getattr(row, "created_at", None))
+    if opened is not None:
+        held = _dur(time.time() - row.created_at)
+        if status in _TERMINAL:
+            closed = _local(int(time.time()))
+            lines.append(f"🕒 {opened:%d.%m.%Y %H:%M} → {closed:%H:%M} · ⏱ {held}")
+        else:
+            lines.append(f"🕒 Ochilgan: {opened:%d.%m %H:%M} · ⏱ {held} · runner davom etmoqda")
+    return "\n".join(lines)
 
 
 def daily_digest(stats: dict, signals_today: int) -> str:
