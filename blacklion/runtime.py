@@ -25,6 +25,11 @@ from .telegram import Notifier
 
 log = get_logger("runtime")
 
+# Position management: scale out 40% at TP1, 40% at TP2, 20% runner to TP3, and
+# ride the stop to breakeven once TP1 prints. Same weights as backtest.engine so
+# live and backtest agree on a trade's R (doc 04/21). Must sum to 1.0.
+_SCALE = (0.4, 0.4, 0.2)
+
 
 class Runtime:
     def __init__(self, source: MarketDataSource, broker: Broker,
@@ -154,23 +159,53 @@ class Runtime:
                     log.error("OutcomeError", id=row.id, error=str(exc))
 
     def _resolve(self, row, hi: float, lo: float) -> None:
+        """Advance a trade at most one stage per bar, mirroring backtest.engine so
+        live outcomes and backtests share one definition of R. Scale out 40% at
+        TP1 and 40% at TP2; once TP1 prints the stop rides at breakeven (entry)
+        for the runner, so a reversal after TP1 books a partial win, not −1R."""
         long = row.direction == "BUY"
-        r = abs(row.entry - row.stop_loss) or 1e-9
-        hit_sl = (lo <= row.stop_loss) if long else (hi >= row.stop_loss)
-        hit_tp3 = (hi >= row.tp3) if long else (lo <= row.tp3)
-        if hit_sl:
-            result_r = -1.0 if row.status == "open" else 0.0   # breakeven after TP1
-            status = "stopped" if row.status == "open" else "breakeven"
-            self.journal.close_signal(row.id, status, result_r)
-            if row.ticket:
-                self.broker.close(row.ticket)
-            self.notifier.on_outcome(row, status, result_r)
-        elif hit_tp3:
-            result_r = round(abs(row.tp3 - row.entry) / r, 2)
-            self.journal.close_signal(row.id, "tp3", result_r)
-            if row.ticket:
-                self.broker.close(row.ticket)
-            self.notifier.on_outcome(row, "tp3", result_r)
+        sign = 1.0 if long else -1.0
+        e = row.entry
+        r = abs(e - row.stop_loss) or 1e-9
+        w1, w2, w3 = _SCALE
+        reached = (lambda lvl: hi >= lvl) if long else (lambda lvl: lo <= lvl)
+        # after TP1 the stop trails up to breakeven (entry) and stays there
+        eff_sl = e if row.status in ("tp1", "tp2") else row.stop_loss
+        stop_hit = (lo <= eff_sl) if long else (hi >= eff_sl)
+
+        if stop_hit:
+            if row.status == "open":
+                self._close(row, "stopped", -1.0)
+                return
+            booked = w1 * sign * (row.tp1 - e) / r
+            if row.status == "tp2":
+                booked += w2 * sign * (row.tp2 - e) / r
+            rem = {"tp1": w2 + w3, "tp2": w3}[row.status]   # runner still live
+            booked += rem * sign * (eff_sl - e) / r          # = 0 at breakeven
+            self._close(row, "breakeven", round(booked, 2))
+        elif reached(row.tp3) and row.status == "tp2":
+            total = sign * (w1 * (row.tp1 - e) + w2 * (row.tp2 - e)
+                            + w3 * (row.tp3 - e)) / r
+            self._close(row, "tp3", round(total, 2))
+        elif reached(row.tp2) and row.status == "tp1":
+            booked = sign * (w1 * (row.tp1 - e) + w2 * (row.tp2 - e)) / r
+            self._advance(row, "tp2", round(booked, 2))
+        elif reached(row.tp1) and row.status == "open":
+            self._advance(row, "tp1", round(w1 * sign * (row.tp1 - e) / r, 2))
+
+    def _close(self, row, status: str, result_r: float) -> None:
+        self.journal.close_signal(row.id, status, result_r)
+        if row.ticket:
+            self.broker.close(row.ticket)
+        self.notifier.on_outcome(row, status, result_r)
+
+    def _advance(self, row, status: str, booked_r: float) -> None:
+        """Book a partial scale-out and keep the runner live. Signals-only today:
+        the scale-out and breakeven are recorded in the journal for honest R;
+        real partial broker exits (execution.partial_close / move_to_breakeven)
+        are wired when BL_MT5_EXECUTE lands and the edge is proven."""
+        self.journal.advance(row.id, status, booked_r)
+        self.notifier.on_outcome(row, status, booked_r)
 
     def _account_state(self) -> AccountState:
         positions = []

@@ -101,11 +101,13 @@ class Journal:
 
     def features_dataset(self) -> list[tuple[dict, str, float]]:
         """(features, status, result_r) for every CLOSED signal that has features —
-        the labelled training set for the AI/Probability engines (docs 16-17)."""
+        the labelled training set for the AI/Probability engines (docs 16-17).
+        Keyed on closed_at so partially scaled-out (tp1/tp2) trades, which carry a
+        running result_r but are not yet resolved, are excluded until they close."""
         with self._conn() as c:
             rows = c.execute(
                 "SELECT features, status, result_r FROM signals "
-                "WHERE features IS NOT NULL AND result_r IS NOT NULL").fetchall()
+                "WHERE features IS NOT NULL AND closed_at IS NOT NULL").fetchall()
         return [(json.loads(r["features"]), r["status"], r["result_r"]) for r in rows]
 
     def record_execution(self, signal_id: int, ticket: str, volume: float,
@@ -118,6 +120,14 @@ class Journal:
         with self._conn() as c:
             c.execute("UPDATE signals SET status=?, result_r=?, closed_at=? WHERE id=?",
                       (status, result_r, int(time.time()), signal_id))
+
+    def advance(self, signal_id: int, status: str, result_r: float) -> None:
+        """Record a partial scale-out (tp1/tp2): store the new status and the R
+        booked so far, but leave closed_at NULL so the trade stays live for its
+        remaining runner. Only close_signal() finalises a trade."""
+        with self._conn() as c:
+            c.execute("UPDATE signals SET status=?, result_r=? WHERE id=?",
+                      (status, result_r, signal_id))
 
     def update_status(self, signal_id: int, status: str) -> None:
         with self._conn() as c:

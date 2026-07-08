@@ -84,16 +84,55 @@ def test_check_outcomes_closes_at_stop(rt):
     assert rt.journal.get(sid).result_r == -1.0
 
 
-def test_check_outcomes_closes_at_tp3(rt):
+def _long(rt) -> int:
+    """A BUY on EURUSD: entry 1.1000, stop 1.0980 (r=0.0020), so
+    tp1=1.1010→0.5R, tp2=1.1050→2.5R, tp3=1.1100→5.0R."""
     sid = rt.journal.record_signal(Signal(
         symbol="EURUSD", direction="BUY", entry=1.1000, stop_loss=1.0980,
         tp1=1.1010, tp2=1.1050, tp3=1.1100, rr=2.5, confidence=88,
         confluence_score=90, reasons=["x"]))
     rt.journal.record_execution(sid, "T-1", 0.5, 1.1000)
-    _set_last_bar(rt, low=1.1001, high=1.1105)   # bar spiked above tp3
+    return sid
+
+
+def test_check_outcomes_scales_out_to_tp3(rt):
+    # one bar above tp3, but stop stays above entry — advances one stage per call:
+    # open → tp1 → tp2 → tp3, booking 0.4·0.5 + 0.4·2.5 + 0.2·5.0 = 2.20R
+    sid = _long(rt)
+    _set_last_bar(rt, low=1.1001, high=1.1105)
+    rt.check_outcomes()
+    assert rt.journal.get(sid).status == "tp1"
+    rt.check_outcomes()
+    assert rt.journal.get(sid).status == "tp2"
     rt.check_outcomes()
     row = rt.journal.get(sid)
-    assert row.status == "tp3" and row.result_r == 5.0
+    assert row.status == "tp3" and row.result_r == 2.2
+
+
+def test_tp1_then_reversal_books_partial_not_full_stop(rt):
+    # THE FIX: price tags TP1 then falls back through entry. Old logic = −1.0R;
+    # now the runner exits at breakeven so the trade banks +0.20R (0.4·0.5R).
+    sid = _long(rt)
+    _set_last_bar(rt, low=1.1001, high=1.1015)     # tagged tp1 only
+    rt.check_outcomes()
+    assert rt.journal.get(sid).status == "tp1"
+    _set_last_bar(rt, low=1.0999, high=1.1002)     # fell back below entry
+    rt.check_outcomes()
+    row = rt.journal.get(sid)
+    assert row.status == "breakeven" and row.result_r == 0.2
+
+
+def test_tp2_then_reversal_books_both_partials(rt):
+    sid = _long(rt)
+    _set_last_bar(rt, low=1.1001, high=1.1015)     # → tp1
+    rt.check_outcomes()
+    _set_last_bar(rt, low=1.1001, high=1.1055)     # → tp2 (0.4·0.5 + 0.4·2.5)
+    rt.check_outcomes()
+    assert rt.journal.get(sid).status == "tp2"
+    _set_last_bar(rt, low=1.0999, high=1.1002)     # runner out at breakeven
+    rt.check_outcomes()
+    row = rt.journal.get(sid)
+    assert row.status == "breakeven" and row.result_r == 1.2
 
 
 def test_multi_timeframe_scan(tmp_path):
