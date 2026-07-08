@@ -9,6 +9,7 @@ safe to boot in any environment (dry-run, CI) without Telegram set up.
 from __future__ import annotations
 
 import html
+import json
 
 import requests
 
@@ -64,8 +65,8 @@ class TelegramClient:
             res = self._call("sendMessage", payload)
         return res["result"]["message_id"] if res and res.get("ok") else None
 
-    def send_photo(self, image: bytes, caption: str = "",
-                   chat_id: str | None = None) -> int | None:
+    def send_photo(self, image: bytes, caption: str = "", chat_id: str | None = None,
+                   reply_markup: dict | None = None) -> int | None:
         """Send a PNG with an HTML caption. Telegram caps captions at 1024 chars,
         so a longer message is sent as a follow-up text instead of being cut."""
         if not self.token:
@@ -73,11 +74,12 @@ class TelegramClient:
                      preview=str(caption)[:120])
             return None
         cap, overflow = (caption, "") if len(caption) <= 1024 else ("", caption)
+        data = {"chat_id": chat_id or self.chat_id, "caption": cap, "parse_mode": "HTML"}
+        if reply_markup:
+            data["reply_markup"] = json.dumps(reply_markup)
         try:
             r = requests.post(
-                _API.format(token=self.token, method="sendPhoto"),
-                data={"chat_id": chat_id or self.chat_id, "caption": cap,
-                      "parse_mode": "HTML"},
+                _API.format(token=self.token, method="sendPhoto"), data=data,
                 files={"photo": ("signal.png", image, "image/png")}, timeout=30)
             body = r.json() if r.content else {}
             if not r.ok:
@@ -90,8 +92,14 @@ class TelegramClient:
             self.send(overflow, chat_id=chat_id)
         return body["result"]["message_id"] if body.get("ok") else None
 
+    def answer_callback(self, callback_id: str, text: str = "") -> None:
+        """Ack a tapped inline button so Telegram stops its spinner."""
+        self._call("answerCallbackQuery",
+                   {"callback_query_id": callback_id, "text": text[:200]})
+
     def get_updates(self, offset: int, timeout: int = 20) -> list[dict]:
         res = self._call("getUpdates",
                          {"offset": offset, "timeout": timeout,
-                          "allowed_updates": ["message"]}, timeout=timeout + 10)
+                          "allowed_updates": ["message", "callback_query"]},
+                         timeout=timeout + 10)
         return res["result"] if res and res.get("ok") else []

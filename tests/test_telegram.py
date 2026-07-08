@@ -69,6 +69,7 @@ class FakeClient:
         self.chat_id = chat_id
         self.sent: list[str] = []
         self.photos: list[tuple] = []
+        self.acks: list[tuple] = []
         self._updates: list[dict] = []
 
     @property
@@ -79,9 +80,12 @@ class FakeClient:
         self.sent.append(text)
         return 1
 
-    def send_photo(self, image, caption="", chat_id=None):
-        self.photos.append((image, caption))
+    def send_photo(self, image, caption="", chat_id=None, reply_markup=None):
+        self.photos.append((image, caption, reply_markup))
         return 2
+
+    def answer_callback(self, callback_id, text=""):
+        self.acks.append((callback_id, text))
 
     def get_updates(self, offset, timeout=20):
         u, self._updates = self._updates, []
@@ -109,6 +113,43 @@ def test_notifier_sends_chart_when_df_present():
     assert len(fc.photos) == 1 and "#9" in fc.photos[0][1]   # caption carries the signal
     assert fc.photos[0][0][:8] == b"\x89PNG\r\n\x1a\n"        # a real PNG went out
     assert fc.sent == []
+
+
+def test_signal_carries_trade_button_when_enabled():
+    n = Notifier(FakeClient())
+    n.trade_enabled = True
+    captured = {}
+    n.client.send = lambda text, chat_id=None, reply_markup=None: captured.update(
+        markup=reply_markup) or 1
+    n.on_signal(sig(), 42)                        # no df → text send with markup
+    assert captured["markup"]["inline_keyboard"][0][0]["callback_data"] == "trade:42"
+
+
+def test_no_button_when_trade_disabled():
+    fc = FakeClient()
+    Notifier(fc).on_signal(sig(), 7)             # trade_enabled default False
+    assert fc.photos == [] and fc.sent            # sent, but plain (no markup path)
+
+
+def test_trade_button_press_executes_only_for_allowlisted_chat(journal):
+    fc = FakeClient(chat_id="100")
+    n = Notifier(fc)
+    called = []
+    n.trade_executor = lambda sid: called.append(sid) or f"✅ ochildi #{sid}"
+
+    # allowlisted tap → executes
+    fc._updates = [{"update_id": 1, "callback_query": {
+        "id": "cb1", "data": "trade:26", "message": {"chat": {"id": 100}}}}]
+    n.poll_commands(journal)
+    assert called == [26] and any("ochildi #26" in s for s in fc.sent)
+    assert fc.acks and fc.acks[0][0] == "cb1"
+
+    # wrong chat → refused, executor not called again
+    fc._updates = [{"update_id": 2, "callback_query": {
+        "id": "cb2", "data": "trade:99", "message": {"chat": {"id": 999}}}}]
+    n.poll_commands(journal)
+    assert called == [26]                          # unchanged
+    assert fc.acks[-1] == ("cb2", "⛔️ Ruxsat yo'q")
 
 
 def test_command_from_wrong_chat_is_ignored(journal):

@@ -54,6 +54,11 @@ class Runtime:
         self.candles: int = 300
         self.balance: float = float(config.env("BL_BALANCE", "10000"))
         self.cooldown_hours: int = int(config.env("BL_COOLDOWN_HOURS", "3"))
+        # When False the scanner never places orders on its own — trades are opened
+        # only when the user taps the "Avto-savdo" button (manual mode). main() sets
+        # this per broker mode; default True preserves auto/paper-execute behaviour.
+        self.auto_execute: bool = config.env("BL_AUTO_EXECUTE", "1") == "1"
+        self.notifier.trade_executor = self.execute_signal   # Telegram button hook
 
     @staticmethod
     def _parse_tfs(spec: str) -> list[tuple[str, str]]:
@@ -117,6 +122,11 @@ class Runtime:
         self.notifier.on_signal(sig, sid, df=df, timeframe=entry_tf,
                                 market_ctx=f"{symbol} · {entry_tf}")
 
+        # Manual mode: the scanner only signals; the order is opened later when the
+        # user taps the button (execute_signal). Auto mode keeps the old behaviour.
+        if not self.auto_execute:
+            return sid
+
         account = self._account_state()
         risk = self.risk.evaluate(sig, account)
         if not risk.approved:
@@ -133,21 +143,46 @@ class Runtime:
                      reason=result.reason)
         return sid
 
+    def execute_signal(self, sid: int) -> str:
+        """Open the trade for a journalled signal on demand (Telegram button). The
+        order carries SL + a TP3 backstop; check_outcomes then manages the 40/40/20
+        scale-out and breakeven on the live position. Returns a status line."""
+        row = self.journal.get(sid)
+        if row is None:
+            return f"⚠️ Signal #{sid} topilmadi."
+        if row.ticket:
+            return f"ℹ️ #{sid} {row.symbol} allaqachon ochilgan (ticket {row.ticket})."
+        if row.status != "open":
+            return f"⚠️ #{sid} endi ochiq emas (holat: {row.status})."
+        sig = self.journal.get_signal(sid)
+        risk = self.risk.evaluate(sig, self._account_state())
+        if not risk.approved:
+            return f"⛔️ #{sid} risk rad etdi: {', '.join(risk.reasons) or 'limit'}"
+        result = self.execution.execute(sig, risk, take_profit=sig.tp3)
+        if result.status != "EXECUTED":
+            log.info("ManualExecFailed", id=sid, status=result.status, reason=result.reason)
+            return f"❌ #{sid} ochilmadi: {result.reason}"
+        self.journal.record_execution(sid, result.ticket, result.volume, result.fill_price)
+        log.info("ManualExecuted", id=sid, symbol=row.symbol, ticket=result.ticket,
+                 lots=result.volume)
+        return (f"✅ Order ochildi — #{sid} <b>{row.symbol}</b> {row.direction}\n"
+                f"📦 Lot: {result.volume} · 🎫 Ticket: {result.ticket}\n"
+                f"🛑 Stop + 🎯 TP3 backstop qo'yildi · bot 40/40/20 boshqaradi")
+
     # ── outcome tracking for open trades ──────────────────────────────────
     def check_outcomes(self) -> None:
         # Price of record is the DATA SOURCE (Yahoo/MT5), not the broker — in
         # dry-run the PaperBroker has no quotes. Fetch each symbol's latest bar
         # once per cycle and use its high/low so intrabar TP/SL hits are caught.
-        cache: dict[tuple[str, str], tuple[float, float]] = {}
+        cache: dict[tuple[str, str], object] = {}
         for row in self.journal.open_trades():
             try:
                 key = (row.symbol, row.timeframe)      # track on the trade's own TF
-                if key not in cache:
-                    df = self.source.fetch(row.symbol, row.timeframe, 3)
-                    cache[key] = (float(df["high"].iloc[-1]),
-                                  float(df["low"].iloc[-1]))
-                hi, lo = cache[key]
-                self._resolve(row, hi, lo)
+                if key not in cache:                   # enough bars to also draw a chart
+                    cache[key] = self.source.fetch(row.symbol, row.timeframe, 80)
+                df = cache[key]
+                hi, lo = float(df["high"].iloc[-1]), float(df["low"].iloc[-1])
+                self._resolve(row, hi, lo, df)
             except Exception as exc:
                 # A symbol that left the watchlist (e.g. crypto after the switch
                 # to the MT5 feed, which has none) can never be priced again —
@@ -159,7 +194,7 @@ class Runtime:
                 else:
                     log.error("OutcomeError", id=row.id, error=str(exc))
 
-    def _resolve(self, row, hi: float, lo: float) -> None:
+    def _resolve(self, row, hi: float, lo: float, df=None) -> None:
         """Advance a trade at most one stage per bar, mirroring backtest.engine so
         live outcomes and backtests share one definition of R. Scale out 40% at
         TP1 and 40% at TP2; once TP1 prints the stop rides at breakeven (entry)
@@ -176,37 +211,54 @@ class Runtime:
 
         if stop_hit:
             if row.status == "open":
-                self._close(row, "stopped", -1.0)
+                self._close(row, "stopped", -1.0, df)
                 return
             booked = w1 * sign * (row.tp1 - e) / r
             if row.status == "tp2":
                 booked += w2 * sign * (row.tp2 - e) / r
             rem = {"tp1": w2 + w3, "tp2": w3}[row.status]   # runner still live
             booked += rem * sign * (eff_sl - e) / r          # = 0 at breakeven
-            self._close(row, "breakeven", round(booked, 2))
+            self._close(row, "breakeven", round(booked, 2), df)
         elif reached(row.tp3) and row.status == "tp2":
             total = sign * (w1 * (row.tp1 - e) + w2 * (row.tp2 - e)
                             + w3 * (row.tp3 - e)) / r
-            self._close(row, "tp3", round(total, 2))
+            self._close(row, "tp3", round(total, 2), df)
         elif reached(row.tp2) and row.status == "tp1":
             booked = sign * (w1 * (row.tp1 - e) + w2 * (row.tp2 - e)) / r
-            self._advance(row, "tp2", round(booked, 2))
+            self._advance(row, "tp2", round(booked, 2), df)
         elif reached(row.tp1) and row.status == "open":
-            self._advance(row, "tp1", round(w1 * sign * (row.tp1 - e) / r, 2))
+            self._advance(row, "tp1", round(w1 * sign * (row.tp1 - e) / r, 2), df)
 
-    def _close(self, row, status: str, result_r: float) -> None:
+    def _close(self, row, status: str, result_r: float, df=None) -> None:
         self.journal.close_signal(row.id, status, result_r)
         if row.ticket:
-            self.broker.close(row.ticket)
-        self.notifier.on_outcome(row, status, result_r)
+            self._broker_op(lambda: self.broker.close(row.ticket))   # close remainder
+        self.notifier.on_outcome(row, status, result_r, df=df, timeframe=row.timeframe)
 
-    def _advance(self, row, status: str, booked_r: float) -> None:
-        """Book a partial scale-out and keep the runner live. Signals-only today:
-        the scale-out and breakeven are recorded in the journal for honest R;
-        real partial broker exits (execution.partial_close / move_to_breakeven)
-        are wired when BL_MT5_EXECUTE lands and the edge is proven."""
+    def _advance(self, row, status: str, booked_r: float, df=None) -> None:
+        """Book a partial scale-out and keep the runner live. When a real position
+        exists (manual trade), scale it out on the broker too so broker and journal
+        never disagree: close 40% of the original at TP1 (stop → breakeven) and
+        another 40% at TP2; the runner rides to the TP3 backstop."""
         self.journal.advance(row.id, status, booked_r)
-        self.notifier.on_outcome(row, status, booked_r)
+        if row.ticket:
+            if status == "tp1":
+                self._broker_op(lambda: self.execution.partial_close(row.ticket, 0.40))
+                self._broker_op(lambda: self.execution.move_to_breakeven(
+                    row.ticket, row.entry))
+            elif status == "tp2":
+                self._broker_op(lambda: self.execution.partial_close(  # 0.4 of original
+                    row.ticket, round(0.40 / 0.60, 4)))
+        self.notifier.on_outcome(row, status, booked_r, df=df, timeframe=row.timeframe)
+
+    @staticmethod
+    def _broker_op(fn) -> None:
+        """Run a broker management call; never let a broker hiccup crash the outcome
+        loop, which also shadow-tracks untraded signals."""
+        try:
+            fn()
+        except Exception as exc:
+            log.warning("BrokerOpFailed", error=str(exc))
 
     def _account_state(self) -> AccountState:
         positions = []

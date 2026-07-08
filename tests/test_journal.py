@@ -47,6 +47,14 @@ def test_close_updates_result_and_stats(journal):
     assert journal.get(sid).status == "tp3"
 
 
+def test_get_signal_reconstructs_full_signal(journal):
+    sid = journal.record_signal(sig(symbol="XAUUSD"))
+    s = journal.get_signal(sid)
+    assert s is not None and s.symbol == "XAUUSD" and s.direction == "BUY"
+    assert s.tp1 and s.tp2 and s.tp3 and s.stop_loss
+    assert journal.get_signal(999999) is None
+
+
 def test_realized_r_window(journal):
     for r in (2.0, -1.0, 1.5):
         sid = journal.record_signal(sig())

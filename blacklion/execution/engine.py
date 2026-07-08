@@ -43,7 +43,8 @@ class ExecutionEngine:
         self.max_slippage = max_slippage_points or {}
         self._symbols = config.load("symbols")["symbols"]
 
-    def execute(self, signal: Signal, risk: RiskDecision) -> ExecutionResult:
+    def execute(self, signal: Signal, risk: RiskDecision,
+                take_profit: float | None = None) -> ExecutionResult:
         # Execution requires prior approval from Rule + Risk (doc 19 §1).
         if not risk.approved or risk.lot_size <= 0:
             return ExecutionResult(status="REJECTED", reason="risk not approved")
@@ -54,10 +55,13 @@ class ExecutionEngine:
             bus.publish("ExecutionRejected", symbol=signal.symbol, reason=why)
             return ExecutionResult(status="REJECTED", reason=why)
 
+        # TP defaults to tp2; the manual scale-out path passes tp3 as a broker-side
+        # backstop while the bot manages TP1/TP2 partials + breakeven itself.
         req = OrderRequest(
             symbol=signal.symbol, direction=signal.direction,
             volume=risk.lot_size, entry=0.0,           # market order
-            stop_loss=signal.stop_loss, take_profit=signal.tp2,
+            stop_loss=signal.stop_loss,
+            take_profit=take_profit if take_profit is not None else signal.tp2,
             comment=f"BL conf={signal.confidence}")
 
         # ── Submit with retry + slippage guard (doc 19 §13) ───────────────

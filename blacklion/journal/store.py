@@ -141,6 +141,21 @@ class Journal:
             row = c.execute("SELECT * FROM signals WHERE id=?", (signal_id,)).fetchone()
         return self._row(row) if row else None
 
+    def get_signal(self, signal_id: int):
+        """Rebuild the full Signal from the stored row so a manual trade can be
+        executed later from the Telegram button (all fields were journalled)."""
+        from ..engines.rule_engine import Signal
+        with self._conn() as c:
+            r = c.execute("SELECT * FROM signals WHERE id=?", (signal_id,)).fetchone()
+        if r is None:
+            return None
+        return Signal(
+            symbol=r["symbol"], direction=r["direction"], entry=r["entry"],
+            stop_loss=r["stop_loss"], tp1=r["tp1"], tp2=r["tp2"], tp3=r["tp3"],
+            rr=r["rr"] or 0.0, confidence=r["confidence"] or 0,
+            confluence_score=r["confluence"] or 0,
+            reasons=json.loads(r["reasons"]) if r["reasons"] else [])
+
     def open_trades(self) -> list[TradeRow]:
         """Every unresolved signal — tracked for its forward outcome whether or not
         it was executed. In dry-run this shadow-tracks EVERY signal so the AI layer

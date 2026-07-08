@@ -135,6 +135,31 @@ def test_tp2_then_reversal_books_both_partials(rt):
     assert row.status == "breakeven" and row.result_r == 1.2
 
 
+def test_execute_signal_opens_and_is_idempotent(rt):
+    sid = rt.journal.record_signal(Signal(
+        symbol="EURUSD", direction="BUY", entry=1.1000, stop_loss=1.0980,
+        tp1=1.1010, tp2=1.1050, tp3=1.1100, rr=2.5, confidence=88,
+        confluence_score=90, reasons=["x"]))
+    msg = rt.execute_signal(sid)
+    assert "Order ochildi" in msg
+    assert rt.journal.get(sid).ticket is not None           # opened through broker
+    assert "allaqachon" in rt.execute_signal(sid)           # second tap is a no-op
+
+
+def test_manual_mode_scan_signals_but_does_not_trade(rt, monkeypatch):
+    rt.auto_execute = False
+    sig = Signal(symbol="EURUSD", direction="BUY", entry=1.1, stop_loss=1.098,
+                 tp1=1.101, tp2=1.105, tp3=1.11, rr=2.5, confidence=88,
+                 confluence_score=90, reasons=["x"])
+    from blacklion.engines.rule_engine import RuleDecision
+    monkeypatch.setattr(rt.pipeline, "run", lambda *a, **k: RuleDecision(
+        symbol="EURUSD", decision="BUY", confluence_score=90, confidence=88,
+        reasons=["x"], signal=sig))
+    ids = rt.scan_once()
+    assert len(ids) == 1                                     # signalled…
+    assert rt.journal.get(ids[0]).ticket is None            # …but NOT auto-traded
+
+
 def test_multi_timeframe_scan(tmp_path):
     from blacklion.engines.rule_engine import RuleDecision, Signal
     frame = df_from_ohlc(_flat(1.1000, 300))
