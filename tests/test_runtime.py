@@ -160,6 +160,53 @@ def test_manual_mode_scan_signals_but_does_not_trade(rt, monkeypatch):
     assert rt.journal.get(ids[0]).ticket is None            # …but NOT auto-traded
 
 
+def _flood_shadow_book(rt) -> None:
+    """Fill the journal with the kind of shadow book that blocked the first live
+    trade: many never-filled open signals + a big paper realized loss, none of
+    which ever became a real broker order (no ticket)."""
+    for _ in range(18):
+        rt.journal.record_signal(Signal(
+            symbol="EURUSD", direction="BUY", entry=1.1, stop_loss=1.098,
+            tp1=1.101, tp2=1.105, tp3=1.11, rr=2.5, confidence=88,
+            confluence_score=90, reasons=["shadow"]))
+    for _ in range(18):                       # −18R of paper losses, all shadow
+        sid = rt.journal.record_signal(Signal(
+            symbol="GBPUSD", direction="SELL", entry=1.3, stop_loss=1.302,
+            tp1=1.299, tp2=1.295, tp3=1.29, rr=2.5, confidence=88,
+            confluence_score=90, reasons=["shadow"]))
+        rt.journal.close_signal(sid, "stopped", -1.0)
+
+
+def test_trade_mode_risk_uses_real_broker_not_shadow_book(rt):
+    # mt5-manual: the button is live but the scanner does not auto-trade.
+    rt.auto_execute = False
+    rt.notifier.trade_enabled = True
+    _flood_shadow_book(rt)                     # 18 open + −18R shadow, zero real fills
+
+    sid = rt.journal.record_signal(Signal(
+        symbol="EURUSD", direction="BUY", entry=1.1000, stop_loss=1.0980,
+        tp1=1.1010, tp2=1.1050, tp3=1.1100, rr=2.5, confidence=88,
+        confluence_score=90, reasons=["x"]))
+    # Real broker is flat → risk approves despite the flooded shadow book.
+    assert rt.broker.positions() == []
+    msg = rt.execute_signal(sid)
+    assert "Order ochildi" in msg
+    assert rt.journal.get(sid).ticket is not None
+
+
+def test_shadow_mode_still_blocks_on_shadow_book(rt):
+    # Dry-run (paper / mt5-data): no order can be placed, so the shadow book
+    # governs risk and the over-exposed account (18 opens, −18R) must veto.
+    rt.auto_execute = False
+    rt.notifier.trade_enabled = False
+    _flood_shadow_book(rt)
+    sig = Signal(symbol="EURUSD", direction="BUY", entry=1.1, stop_loss=1.098,
+                 tp1=1.101, tp2=1.105, tp3=1.11, rr=2.5, confidence=88,
+                 confluence_score=90, reasons=["x"])
+    d = rt.risk.evaluate(sig, rt._account_state())
+    assert not d.approved                      # shadow caps still bite in dry-run
+
+
 def test_multi_timeframe_scan(tmp_path):
     from blacklion.engines.rule_engine import RuleDecision, Signal
     frame = df_from_ohlc(_flat(1.1000, 300))

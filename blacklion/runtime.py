@@ -261,16 +261,77 @@ class Runtime:
             log.warning("BrokerOpFailed", error=str(exc))
 
     def _account_state(self) -> AccountState:
-        positions = []
-        for row in self.journal.open_trades():
-            positions.append(OpenPosition(
-                symbol=row.symbol, direction=row.direction, risk_pct=self.risk.risk_pct))
+        """The risk engine's view of the account.
+
+        Two very different books, one per mode:
+          • dry-run (paper / mt5-data) → the JOURNAL shadow book. Every signal is
+            tracked as an open trade and its paper outcome feeds realized_r, so the
+            AI layer gets a labelled history. Correct when NO real order is placed.
+          • trade mode (auto-execute or the Avto-savdo button enabled) → the REAL
+            broker: open_positions from broker.positions(), balance/equity from
+            account_info(), and realized loss ONLY from trades that carried a real
+            ticket. Otherwise the ~18 never-filled shadow signals (and their −R
+            paper outcomes) would trip the open-trade / heat / loss caps and veto
+            every live trade — the bug that blocked the first button press.
+        """
+        if self._trade_mode():
+            return self._live_account_state()
+        return self._shadow_account_state()
+
+    def _trade_mode(self) -> bool:
+        """True when a real order can actually be placed — the scanner auto-trades
+        or the Telegram Avto-savdo button is live (mt5-manual / mt5-live)."""
+        return self.auto_execute or self.notifier.trade_enabled
+
+    def _shadow_account_state(self) -> AccountState:
+        positions = [
+            OpenPosition(symbol=row.symbol, direction=row.direction,
+                         risk_pct=self.risk.risk_pct)
+            for row in self.journal.open_trades()]
         return AccountState(
             balance=self.balance, equity=self.balance,
             open_positions=positions,
             realized_pnl_today_pct=self.journal.realized_r(86400) * self.risk.risk_pct,
             realized_pnl_week_pct=self.journal.realized_r(7 * 86400) * self.risk.risk_pct,
             contract_size=100000.0)
+
+    def _live_account_state(self) -> AccountState:
+        # Each real position counts as one standard risk unit against the heat /
+        # exposure / open-trade caps — exactly how a new trade is sized, so N open
+        # positions = N × risk_pct of heat.
+        positions = [
+            OpenPosition(symbol=p.symbol, direction=p.direction,
+                         risk_pct=self.risk.risk_pct)
+            for p in self._broker_positions()]
+        balance, equity = self._broker_balance()
+        return AccountState(
+            balance=balance, equity=equity,
+            open_positions=positions,
+            realized_pnl_today_pct=self.journal.realized_r(
+                86400, executed_only=True) * self.risk.risk_pct,
+            realized_pnl_week_pct=self.journal.realized_r(
+                7 * 86400, executed_only=True) * self.risk.risk_pct,
+            contract_size=100000.0)
+
+    def _broker_positions(self) -> list:
+        try:
+            return self.broker.positions()
+        except Exception as exc:
+            log.warning("BrokerPositionsFailed", error=str(exc))
+            return []
+
+    def _broker_balance(self) -> tuple[float, float]:
+        """Real (balance, equity) from the broker; fall back to the configured
+        balance if the adapter can't report (e.g. PaperBroker, bridge hiccup)."""
+        info = getattr(self.broker, "account_info", None)
+        if info is not None:
+            try:
+                balance, equity = info()
+                if balance > 0:
+                    return balance, equity
+            except Exception as exc:
+                log.warning("BrokerAccountInfoFailed", error=str(exc))
+        return self.balance, self.balance
 
     # ── blocking loop for __main__ ────────────────────────────────────────
     def run_forever(self, scan_interval: int = 1800, outcome_interval: int = 300) -> None:  # pragma: no cover

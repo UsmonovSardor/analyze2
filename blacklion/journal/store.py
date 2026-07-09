@@ -172,11 +172,18 @@ class Journal:
             return c.execute("SELECT COUNT(*) FROM signals WHERE created_at>?",
                              (cutoff,)).fetchone()[0]
 
-    def realized_r(self, since_seconds: int) -> float:
+    def realized_r(self, since_seconds: int, executed_only: bool = False) -> float:
+        """Sum of closed-trade R over the window. In trade modes pass
+        executed_only=True so only trades that carried a real broker ticket count
+        toward the loss locks — the never-filled shadow signals we track for the
+        AI history must not veto live risk (see Runtime._account_state)."""
         cutoff = int(time.time()) - since_seconds
+        q = ("SELECT result_r FROM signals WHERE closed_at>? "
+             "AND result_r IS NOT NULL")
+        if executed_only:
+            q += " AND ticket IS NOT NULL"
         with self._conn() as c:
-            rows = c.execute("SELECT result_r FROM signals WHERE closed_at>? "
-                             "AND result_r IS NOT NULL", (cutoff,)).fetchall()
+            rows = c.execute(q, (cutoff,)).fetchall()
         return round(sum(r[0] for r in rows), 4)
 
     def recent_signal_for(self, symbol: str, hours: int,

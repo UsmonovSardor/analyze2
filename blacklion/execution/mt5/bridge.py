@@ -146,6 +146,14 @@ class MT5Broker:
         return OrderResult(ok=True, ticket=ticket, fill_price=float(res.price),
                            volume=float(res.volume))
 
+    def account_info(self) -> tuple[float, float]:     # pragma: no cover
+        """Real (balance, equity) from the terminal — the risk engine's account
+        view in trade modes, replacing the journal's shadow book."""
+        info = self._mt5.account_info()
+        if info is None:
+            return 0.0, 0.0
+        return float(info.balance), float(info.equity)
+
     def positions(self) -> list[BrokerPosition]:       # pragma: no cover
         out: list[BrokerPosition] = []
         for p in self._mt5.positions_get() or []:
