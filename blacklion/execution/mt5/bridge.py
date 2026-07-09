@@ -116,9 +116,11 @@ class MT5Broker:
             "type_filling": self._filling_mode(req.symbol),
         }
         t0 = time.time()
-        # mt5linux proxies over rpyc, which refuses a positional dict ("Unnamed
-        # arguments not allowed"); the request MUST be spread as kwargs.
-        res = mt5.order_send(**request)
+        # mt5linux wraps order_send as order_send(self, request) — a POSITIONAL
+        # dict (verified against 0.1.9). Spreading it as **kwargs raises
+        # "unexpected keyword argument 'action'". (order_check differs: *args,
+        # **kwargs — hence _filling probes use kwargs, orders use a positional.)
+        res = mt5.order_send(request)
         latency = int((time.time() - t0) * 1000)
         if res is None or res.retcode != mt5.TRADE_RETCODE_DONE:
             return OrderResult(ok=False, latency_ms=latency,
@@ -139,7 +141,7 @@ class MT5Broker:
             "sl": stop_loss if stop_loss is not None else pos.stop_loss,
             "tp": take_profit if take_profit is not None else pos.take_profit,
         }
-        res = mt5.order_send(**request)          # kwargs — rpyc rejects a positional dict
+        res = mt5.order_send(request)          # positional dict — see place_order note
         return bool(res and res.retcode == mt5.TRADE_RETCODE_DONE)
 
     def close(self, ticket: str, volume=None) -> OrderResult:   # pragma: no cover
@@ -160,7 +162,7 @@ class MT5Broker:
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": self._filling_mode(pos.symbol),
         }
-        res = mt5.order_send(**request)          # kwargs — rpyc rejects a positional dict
+        res = mt5.order_send(request)          # positional dict — see place_order note
         if res is None or res.retcode != mt5.TRADE_RETCODE_DONE:
             return OrderResult(ok=False, error=f"retcode {getattr(res, 'retcode', '?')}")
         return OrderResult(ok=True, ticket=ticket, fill_price=float(res.price),
