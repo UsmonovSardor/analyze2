@@ -79,6 +79,21 @@ class MT5Broker:
         return float(info.spread) if info else 0.0
 
     # ── orders ────────────────────────────────────────────────────────────
+    def _filling_mode(self, symbol: str):              # pragma: no cover
+        """Pick a filling mode the SYMBOL actually allows. The terminal rejects a
+        hardcoded mode with retcode 10030 "Unsupported filling mode" — e.g.
+        MetaQuotes-Demo EURUSD accepts FOK only (bitmask 1), XAUUSD FOK+IOC (3).
+        symbol_info.filling_mode is a bitmask: bit0=FOK, bit1=IOC; RETURN is the
+        fallback for symbols advertising neither."""
+        mt5 = self._mt5
+        info = mt5.symbol_info(symbol)
+        allowed = int(getattr(info, "filling_mode", 0)) if info else 0
+        if allowed & 1:
+            return mt5.ORDER_FILLING_FOK
+        if allowed & 2:
+            return mt5.ORDER_FILLING_IOC
+        return mt5.ORDER_FILLING_RETURN
+
     def place_order(self, req: OrderRequest) -> OrderResult:   # pragma: no cover
         mt5 = self._mt5
         tick = mt5.symbol_info_tick(req.symbol)
@@ -97,10 +112,13 @@ class MT5Broker:
             "tp": req.take_profit,
             "deviation": _DEVIATION,
             "comment": req.comment or "BLACK LION",
-            "type_filling": mt5.ORDER_FILLING_IOC,
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": self._filling_mode(req.symbol),
         }
         t0 = time.time()
-        res = mt5.order_send(request)
+        # mt5linux proxies over rpyc, which refuses a positional dict ("Unnamed
+        # arguments not allowed"); the request MUST be spread as kwargs.
+        res = mt5.order_send(**request)
         latency = int((time.time() - t0) * 1000)
         if res is None or res.retcode != mt5.TRADE_RETCODE_DONE:
             return OrderResult(ok=False, latency_ms=latency,
@@ -121,7 +139,7 @@ class MT5Broker:
             "sl": stop_loss if stop_loss is not None else pos.stop_loss,
             "tp": take_profit if take_profit is not None else pos.take_profit,
         }
-        res = mt5.order_send(request)
+        res = mt5.order_send(**request)          # kwargs — rpyc rejects a positional dict
         return bool(res and res.retcode == mt5.TRADE_RETCODE_DONE)
 
     def close(self, ticket: str, volume=None) -> OrderResult:   # pragma: no cover
@@ -139,8 +157,10 @@ class MT5Broker:
             "position": int(ticket),
             "price": tick.bid if is_buy else tick.ask,
             "deviation": _DEVIATION,
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": self._filling_mode(pos.symbol),
         }
-        res = mt5.order_send(request)
+        res = mt5.order_send(**request)          # kwargs — rpyc rejects a positional dict
         if res is None or res.retcode != mt5.TRADE_RETCODE_DONE:
             return OrderResult(ok=False, error=f"retcode {getattr(res, 'retcode', '?')}")
         return OrderResult(ok=True, ticket=ticket, fill_price=float(res.price),
