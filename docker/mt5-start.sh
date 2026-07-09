@@ -75,10 +75,28 @@ else
     rm -f /config/.wine/drive_c/mt5setup.exe
 fi
 
+# Enable AutoTrading (Algo Trading) at every launch. The Python bridge's
+# order_send is refused unless terminal_info().trade_allowed is true, which the
+# toolbar "Algo Trading" toggle controls — and a container kill never saves that
+# toggle, so it defaults OFF each boot and silently blocks every real order
+# (retcode 10027 "AutoTrading disabled by client"). A startup-config ini with
+# [Experts] Enabled=1 flips it on at launch, deterministically, with no VNC
+# click. Login is NOT set here, so the terminal keeps auto-logging into the
+# account saved in the mt5_config volume.
+startup_ini="/config/.wine/drive_c/startup.ini"
+cat > "$startup_ini" <<'INI'
+[Experts]
+AllowLiveTrading=1
+AllowDllImport=0
+Enabled=1
+Account=
+Profile=
+INI
+
 # Recheck if MetaTrader 5 is installed
 if [ -e "$mt5file" ]; then
-    show_message "[4/7] File $mt5file is installed. Running MT5..."
-    $wine_executable "$mt5file" $MT5_CMD_OPTIONS &
+    show_message "[4/7] File $mt5file is installed. Running MT5 (AutoTrading on)..."
+    $wine_executable "$mt5file" "C:\\startup.ini" $MT5_CMD_OPTIONS &
 else
     show_message "[4/7] File $mt5file is not installed. MT5 cannot be run."
 fi
