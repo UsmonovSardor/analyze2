@@ -17,8 +17,6 @@ def test_symbol_aliases():
     assert normalize_symbol("XAUUSD.r") == "XAUUSD"
     assert normalize_symbol("GOLD") == "XAUUSD"
     assert normalize_symbol("xauusdm") == "XAUUSD"
-    assert normalize_symbol("NAS100") == "USTEC"
-    assert normalize_symbol("GER40") == "DE40"
 
 
 def test_unknown_symbol_raises():

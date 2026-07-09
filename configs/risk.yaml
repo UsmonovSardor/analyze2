@@ -8,10 +8,8 @@ weekly_loss_limit_pct: 6.0
 monthly_loss_limit_pct: 10.0
 maximum_open_trades: 5
 maximum_portfolio_heat_pct: 5.0
-max_exposure_pct: {commodity: 2.0, forex: 4.0, index: 4.0}
+max_exposure_pct: {commodity: 2.0, forex: 4.0}
 correlation_groups:
   - [EURUSD, GBPUSD]
   - [XAUUSD, XAGUSD]
-  - [US500, US30, USTEC]      # US indices move together
-  - [DE40, UK100]             # European indices
 sizing_model: fixed_risk_pct    # fixed_lot | fixed_risk_pct | atr_based
