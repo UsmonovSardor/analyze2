@@ -53,6 +53,37 @@ def test_signal_has_valid_level_ordering_when_generated():
         assert 0 <= s.confidence <= 100
 
 
+def test_stored_signal_rr_survives_tick_rounding():
+    """The risk engine recomputes RR from the STORED (rounded) entry/stop/tp2, so
+    tick-rounding must never drop it below the minimum and veto our own signal.
+
+    Regression: a JPN225 (digits=0) 2.0R target was stored at 68606 instead of
+    68605 → 1.99R → "RR 1.99 below minimum 2.0", blocking the Avto-savdo button.
+    Sweep fractional entries (the source of the 1-tick drift) on an integer-digit
+    instrument; every stored signal must still clear min_rr when re-derived.
+    """
+    from types import SimpleNamespace
+
+    from blacklion.engines.rule_engine.service import RuleEngine
+
+    eng = RuleEngine()
+    min_rr = float(eng.risk["minimum_rr"])
+    df = df_from_ohlc(_flat(68900.0, 30))
+    for frac in range(100):                       # 68898.00 … 68898.99
+        close = 68898.0 + frac / 100.0
+        df.loc[df.index[-1], "close"] = close
+        structure = SimpleNamespace(
+            last_swing_high=69040.0, last_swing_low=68760.0, strength=70)
+        sig = eng._build_signal("JPN225", df, "SELL", structure,
+                                ob=None, fvg=None, confluence=80)
+        if sig is None:
+            continue
+        r = abs(sig.entry - sig.stop_loss)
+        rr = abs(sig.tp2 - sig.entry) / r         # exactly how RiskEngine recomputes
+        assert rr >= min_rr, f"close={close}: stored RR {rr:.4f} < {min_rr}"
+        assert sig.entry > sig.tp1 > sig.tp2 > sig.tp3   # SELL ordering intact
+
+
 def test_decision_is_deterministic():
     df = df_from_ohlc(bullish_setup())
     a = PIPE.run("XAUUSD", df, htf_bullish=True)

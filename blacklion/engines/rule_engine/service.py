@@ -9,6 +9,7 @@ only make the system MORE selective, never override a NO TRADE into a trade.
 """
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -210,29 +211,44 @@ class RuleEngine:
             protective = ob.price_low if ob else structure.last_swing_low
             protective = protective if protective is not None else entry - 1.5 * atr
             sl = min(protective, entry - 1.0 * atr) - 0.1 * atr
-            r = entry - sl
-            if r <= 0:
+            if entry - sl <= 0:
                 return None
-            tp1, tp2, tp3 = entry + 1.5 * r, entry + min_rr * r, entry + 4 * r
         else:
             protective = ob.price_high if ob else structure.last_swing_high
             protective = protective if protective is not None else entry + 1.5 * atr
             sl = max(protective, entry + 1.0 * atr) + 0.1 * atr
-            r = sl - entry
-            if r <= 0:
+            if sl - entry <= 0:
                 return None
-            tp1, tp2, tp3 = entry - 1.5 * r, entry - min_rr * r, entry - 4 * r
 
-        rr = abs(tp2 - entry) / r
-        if rr < min_rr:
-            return None
         digits = config.load("symbols")["symbols"].get(symbol, {}).get("digits", 5)
+        step = 10 ** -digits
 
         def rnd(x: float) -> float:
             return round(x, digits)
+
+        # Round entry & stop to the instrument tick FIRST, then derive R and every
+        # target from those stored values — the risk engine recomputes RR from
+        # exactly these, so signal and risk must agree. Round each TP AWAY from
+        # entry (distance rounded UP to a whole tick) so a rounding tick can never
+        # shrink realized R below the intended multiple and make risk veto our own
+        # signal — e.g. a 2.0R TP2 landing at 1.99R after rounding (doc 18 §10).
+        e, sl = rnd(entry), rnd(sl)
+        r = abs(e - sl)
+        if r <= 0:
+            return None
+        up = direction == "BUY"
+
+        def target(mult: float) -> float:
+            dist = math.ceil(mult * r / step) * step
+            return rnd(e + dist if up else e - dist)
+
+        tp1, tp2, tp3 = target(1.5), target(min_rr), target(4.0)
+        rr = abs(tp2 - e) / r
+        if rr < min_rr:
+            return None
         return Signal(
             symbol=symbol, direction=direction,  # type: ignore[arg-type]
-            entry=rnd(entry), stop_loss=rnd(sl),
-            tp1=rnd(tp1), tp2=rnd(tp2), tp3=rnd(tp3), rr=round(rr, 2),
+            entry=e, stop_loss=sl,
+            tp1=tp1, tp2=tp2, tp3=tp3, rr=round(rr, 2),
             confidence=self._confidence(confluence, structure),
             confluence_score=confluence, reasons=[])
