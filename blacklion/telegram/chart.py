@@ -132,12 +132,16 @@ def _draw(plt, sig, df, timeframe, bars, outcome, end_epoch) -> bytes:
                 bbox=dict(boxstyle="square,pad=0.32", facecolor=facecol,
                           edgecolor=color, linewidth=0.8))
 
-    # current price — MT5-style dashed marker with a highlighted tag on the axis
-    ax.plot([-0.5, n - 0.5], [last, last], color=_MUTED, linewidth=0.8,
-            linestyle=(0, (2, 3)), alpha=0.7, zorder=5)
-    ax.text(n + 0.6, last, f"{last:.{dec}f}", va="center", ha="left", color=_BG,
-            fontsize=7.5, fontweight="bold", zorder=8,
-            bbox=dict(boxstyle="square,pad=0.3", facecolor=_MUTED, edgecolor="none"))
+    # current price — MT5-style dashed marker + axis tag, but skip it when it
+    # nearly coincides with a level tag (a fresh signal fires AT the current close,
+    # so entry ≈ last → the two tags would overlap into an unreadable smear).
+    near = min(abs(last - p) for p, _c, _t in levels)
+    if near > span * 0.022:
+        ax.plot([-0.5, n - 0.5], [last, last], color=_MUTED, linewidth=0.8,
+                linestyle=(0, (2, 3)), alpha=0.7, zorder=5)
+        ax.text(n + 0.6, last, f"{last:.{dec}f}", va="center", ha="left", color=_BG,
+                fontsize=7.5, fontweight="bold", zorder=8,
+                bbox=dict(boxstyle="square,pad=0.3", facecolor=_MUTED, edgecolor="none"))
 
     # header: symbol · TF (left), direction (right)
     arrow = "▲ BUY" if sig.direction == "BUY" else "▼ SELL"
