@@ -40,6 +40,18 @@ def _bar(score: int) -> str:
     return "▰" * score + "▱" * (10 - score)
 
 
+# 7-factor scorecard display names (order fixed for a stable caption line)
+_SCORECARD_UZ = [("trend", "Trend", 2), ("level", "Zona", 2), ("volume", "Hajm", 2),
+                 ("rsi", "RSI", 1), ("macro", "HTF", 1), ("room", "Joy", 1),
+                 ("candle", "Sham", 1)]
+
+
+def _scorecard_line(card: dict) -> str:
+    parts = [f"{name} {card.get(key, 0)}/{mx}" for key, name, mx in _SCORECARD_UZ]
+    total = sum(card.get(k, 0) for k, _, _ in _SCORECARD_UZ)
+    return f"🎯 {' · '.join(parts)} — <b>{total}/10</b>"
+
+
 def signal_message(sig: Signal, sig_id: int, market_ctx: str = "") -> str:
     arrow = "🟢" if sig.direction == "BUY" else "🔻"
     r = abs(sig.entry - sig.stop_loss) or 1e-9
@@ -56,6 +68,7 @@ def signal_message(sig: Signal, sig_id: int, market_ctx: str = "") -> str:
         f"📌 <b>{esc(sig.strategy_name)}</b>",
         f"📊 Ishonch <b>{sig.confidence}/100</b> · konfluens {sig.confluence_score} "
         f"{_bar(sig.confidence)}",
+        *([_scorecard_line(sig.scorecard)] if sig.scorecard else []),
         "",
         f"📍 Kirish: <b>{sig.entry}</b>",
         f"🛑 Stop: <b>{sig.stop_loss}</b>  <i>(−{loss_pct:.2f}%)</i>",

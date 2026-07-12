@@ -45,6 +45,11 @@ class Signal(BaseModel):
     reasons: list[str]
     strategy_name: str = "SMC (generic)"   # named catalog strategy, if one matched
     setup: str = ""                        # short code (A/B/…)
+    scorecard: dict[str, int] = {}         # 7-factor points when a strategy matched
+    # zone anchors for the chart's strategy annotations (drawn as bands/lines)
+    ob_zone: tuple[float, float] | None = None     # (low, high) of the aligned OB
+    fvg_zone: tuple[float, float] | None = None    # (low, high) of the aligned FVG
+    liq_level: float | None = None                 # swept liquidity pool price
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -159,10 +164,18 @@ class RuleEngine:
         if match is not None:
             signal.strategy_name = match.name
             signal.setup = match.code
+            signal.scorecard = match.scorecard
             # the detector's valued notes enrich the analysis block
             reasons.append(f"{match.name} setup tasdiqlandi "
                            f"(scorecard {match.score}/10)")
             reasons += [f"  – {note}" for note in match.reasons[:3]]
+        # zone anchors → chart annotations (only zones aligned with the trade)
+        if ob_aligned and ob is not None:
+            signal.ob_zone = (ob.price_low, ob.price_high)
+        if fvg_aligned and fvg.nearest is not None:
+            signal.fvg_zone = (fvg.nearest.gap_low, fvg.nearest.gap_high)
+        if liquidity.liquidity_swept and liquidity.nearest_pool is not None:
+            signal.liq_level = liquidity.nearest_pool
         signal.reasons = reasons
         bus.publish("SignalGenerated", symbol=symbol, direction=direction,
                     confidence=signal.confidence)

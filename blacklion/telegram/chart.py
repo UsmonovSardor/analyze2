@@ -98,8 +98,18 @@ def _draw(plt, sig, df, timeframe, bars, outcome, end_epoch) -> bytes:
         (sig.entry, _ENTRY, "E"), (sig.stop_loss, _STOP, "SL"),
     ]
 
-    # y-range covers candles AND every level, with a little headroom so tags fit
+    # strategy zone anchors (Signal carries them; TradeRow may not — degrade)
+    ob_zone = getattr(sig, "ob_zone", None)
+    fvg_zone = getattr(sig, "fvg_zone", None)
+    liq_level = getattr(sig, "liq_level", None)
+
+    # y-range covers candles AND every level/zone, with headroom so tags fit
     prices = [h.max(), lows.min(), sig.tp3, sig.stop_loss, sig.entry]
+    for zone in (ob_zone, fvg_zone):
+        if zone:
+            prices += [float(zone[0]), float(zone[1])]
+    if liq_level:
+        prices.append(float(liq_level))
     ymax, ymin = max(prices), min(prices)
     pad = max((ymax - ymin) * 0.06, 1e-9)
     ymax, ymin = ymax + pad, ymin - pad
@@ -107,6 +117,33 @@ def _draw(plt, sig, df, timeframe, bars, outcome, end_epoch) -> bytes:
     fig, ax = plt.subplots(figsize=(10, 5.6), dpi=140)
     fig.patch.set_facecolor(_BG)
     ax.set_facecolor(_PANEL)
+
+    # ── strategy annotations: WHY we entered, drawn UNDER the candles ─────
+    # EMA context lines (terminal convention: orange 50, blue 200)
+    for col_name, colr in (("ema50", "#ff9800"), ("ema200", "#64b5f6")):
+        if col_name in d:
+            ax.plot(range(n), d[col_name].to_numpy(), color=colr,
+                    linewidth=1.0, alpha=0.8, zorder=2)
+            ax.text(-0.9, float(d[col_name].iloc[0]), col_name.upper(),
+                    va="center", ha="left", color=colr, fontsize=6,
+                    fontweight="bold", alpha=0.9, zorder=2)
+    # institutional zones — soft bands with a small in-band tag
+    for zone, colr, tag in ((ob_zone, "#2962ff", "OB"),
+                            (fvg_zone, "#ab47bc", "FVG")):
+        if not zone:
+            continue
+        zlo, zhi = float(min(zone)), float(max(zone))
+        ax.add_patch(Rectangle((-0.5, zlo), n, max(zhi - zlo, 1e-9),
+                               facecolor=colr, alpha=0.10, edgecolor=colr,
+                               linewidth=0.6, zorder=2))
+        ax.text(0.2, (zlo + zhi) / 2, tag, va="center", ha="left", color=colr,
+                fontsize=7.5, fontweight="bold", alpha=0.95, zorder=2)
+    # swept liquidity pool — dotted amber line
+    if liq_level:
+        ax.plot([-0.5, n - 0.5], [liq_level, liq_level], color="#ffb74d",
+                linewidth=0.9, linestyle=(0, (1, 2)), alpha=0.85, zorder=2)
+        ax.text(0.2, float(liq_level), "LIQ", va="bottom", ha="left",
+                color="#ffb74d", fontsize=6.5, fontweight="bold", zorder=2)
 
     # candles — thin wicks + slim bodies, terminal proportions
     w = 0.6
@@ -144,15 +181,29 @@ def _draw(plt, sig, df, timeframe, bars, outcome, end_epoch) -> bytes:
                 fontsize=7.5, fontweight="bold", zorder=8,
                 bbox=dict(boxstyle="square,pad=0.3", facecolor=_MUTED, edgecolor="none"))
 
-    # header: symbol · TF (left), direction (right)
+    # header: symbol · TF (left), strategy (centre), direction (right)
     arrow = "▲ BUY" if sig.direction == "BUY" else "▼ SELL"
     acol = _UP if sig.direction == "BUY" else _DOWN
     ax.text(0.0, 1.045, f"{sig.symbol}", transform=ax.transAxes, ha="left",
             va="bottom", color=_TEXT, fontsize=14, fontweight="bold")
     ax.text(0.128, 1.052, f"· {timeframe}", transform=ax.transAxes, ha="left",
             va="bottom", color=_MUTED, fontsize=10.5, fontweight="bold")
+    strat = getattr(sig, "strategy_name", "")
+    if strat:
+        ax.text(0.55, 1.052, strat, transform=ax.transAxes, ha="center",
+                va="bottom", color=_MUTED, fontsize=10, fontweight="bold")
     ax.text(1.0, 1.05, arrow, transform=ax.transAxes, ha="right", va="bottom",
             color=acol, fontsize=12, fontweight="bold")
+
+    # scorecard badge (signal charts only — outcome charts use that corner)
+    card = getattr(sig, "scorecard", None)
+    if outcome is None and card:
+        total = sum(card.values())
+        ax.text(0.014, 0.96, f"SCORE {total}/10", transform=ax.transAxes,
+                ha="left", va="top", color=_TEXT, fontsize=9.5,
+                fontweight="bold", zorder=9,
+                bbox=dict(boxstyle="square,pad=0.4", facecolor="#2a2e39",
+                          edgecolor=_AXIS, linewidth=0.8))
 
     # faint corner watermark (not a big centre stamp)
     ax.text(0.5, 0.5, "BLACK LION AI", transform=ax.transAxes, ha="center",
