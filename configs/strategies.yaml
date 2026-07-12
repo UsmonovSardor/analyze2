@@ -23,3 +23,16 @@ range_breakout:            # Setup B — Brooks breakout + retest
   breakout_vol_mult: 1.5   # breakout bar volume vs 20-bar average
   retest_atr: 0.5          # retest proximity to the broken level
   min_score: 6
+
+# ── ICT phase-2 models (HTF-expressible; 5m/1m-native models stay deferred) ──
+turtle_soup:               # liquidity sweep → structure shift → FVG retest
+  enabled: true
+  min_score: 6
+
+unicorn:                   # breaker + FVG overlap with a DOL in profit direction
+  enabled: true
+  min_score: 6
+
+amd_po3:                   # manipulation (stop-hunt) resolved into distribution
+  enabled: true
+  min_score: 6

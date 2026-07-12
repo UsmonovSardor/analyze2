@@ -166,3 +166,79 @@ def test_candle_helpers():
     wick = pd.DataFrame([(100.0, 102.0, 99.9, 100.3)],
                         columns=["open", "high", "low", "close"])
     assert candles.wick_against(wick, "BUY")
+
+
+# ── ICT phase-2 models ──────────────────────────────────────────────────────
+
+def _ict_ctx(regime="bull_pullback", *, swept=True, stop_hunt=True,
+             choch=True, breaker=False, amd="", bsl=False,
+             ob_band=None, fvg_band=None):
+    from blacklion.engines.fvg import FairValueGap, FVGResult
+    from blacklion.engines.ict import ICTResult
+    from blacklion.engines.liquidity import LiquidityResult
+    from blacklion.engines.market_structure import StructureResult
+    from blacklion.engines.order_block import OrderBlock, OrderBlockResult
+    df = _pullback_df()
+    structure = StructureResult(
+        symbol="EURUSD", trend=Trend.BULLISH, structure="HH-HL",
+        bos=not choch, bos_direction="" if choch else "bullish",
+        choch=choch, choch_direction="bullish" if choch else "",
+        strength=75, quality="A", confidence=75,
+        last_swing_high=110.0, last_swing_low=100.0)
+    liq = LiquidityResult(
+        symbol="EURUSD", buy_side_liquidity=bsl, sell_side_liquidity=False,
+        liquidity_swept=swept, sweep_direction="bullish" if swept else "",
+        stop_hunt=stop_hunt, nearest_pool=104.2 if swept else None,
+        liquidity_score=70, quality="A", confidence=70)
+    ob_band = ob_band or (104.0, 104.8)
+    fvg_band = fvg_band or (104.3, 104.9)
+    ob = OrderBlockResult(symbol="EURUSD", best=OrderBlock(
+        type="bullish", index=30, price_low=ob_band[0], price_high=ob_band[1],
+        fresh=True, mitigated=False, score=85, quality="A+", confidence=85))
+    fvg = FVGResult(symbol="EURUSD", nearest=FairValueGap(
+        type="bullish", index=31, gap_low=fvg_band[0], gap_high=fvg_band[1],
+        size=fvg_band[1] - fvg_band[0], filled_pct=10.0, filled=False,
+        score=80, quality="A", confidence=80))
+    ict = ICTResult(symbol="EURUSD", premium_discount="Discount",
+                    equilibrium=105.0, ote=False, kill_zone="london",
+                    amd_phase=amd, breaker_block=breaker,
+                    ict_score=70, quality="A")
+    return DetectorContext(symbol="EURUSD", df=df, structure=structure,
+                           liquidity=liq, order_block=ob, fvg=fvg, ict=ict,
+                           htf_bullish=True, regime=regime)
+
+
+def test_turtle_soup_detects_sweep_reversal():
+    from blacklion.engines.strategies.ict_models import TurtleSoup
+    m = TurtleSoup().detect(_ict_ctx())
+    assert m is not None and m.direction == "BUY" and m.code == "TSOUP"
+    assert any("likvidlik supurildi" in r for r in m.reasons)
+
+
+def test_turtle_soup_requires_structure_shift():
+    from blacklion.engines.strategies.ict_models import TurtleSoup
+    ctx = _ict_ctx(choch=False)
+    ctx.structure = ctx.structure.model_copy(update={
+        "bos": False, "bos_direction": ""})
+    assert TurtleSoup().detect(ctx) is None
+
+
+def test_unicorn_needs_breaker_overlap_and_dol():
+    from blacklion.engines.strategies.ict_models import Unicorn
+    assert Unicorn().detect(
+        _ict_ctx(breaker=True, bsl=True)) is not None       # overlap + DOL
+    assert Unicorn().detect(
+        _ict_ctx(breaker=False, bsl=True)) is None          # no breaker
+    assert Unicorn().detect(
+        _ict_ctx(breaker=True, bsl=False)) is None          # no DOL
+    assert Unicorn().detect(_ict_ctx(breaker=True, bsl=True,
+                                     ob_band=(101.0, 101.5),
+                                     fvg_band=(104.5, 104.9))) is None  # no overlap
+
+
+def test_amd_fires_only_in_distribution_after_stop_hunt():
+    from blacklion.engines.strategies.ict_models import AMDPowerOfThree
+    assert AMDPowerOfThree().detect(_ict_ctx(amd="Distribution")) is not None
+    assert AMDPowerOfThree().detect(_ict_ctx(amd="Manipulation")) is None
+    assert AMDPowerOfThree().detect(
+        _ict_ctx(amd="Distribution", stop_hunt=False)) is None

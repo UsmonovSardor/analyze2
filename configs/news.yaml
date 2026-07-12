@@ -1,0 +1,6 @@
+# Red-folder news guard (blacklion/data/news.py). FAIL-OPEN: an unreachable
+# calendar never blocks trading — it only logs. Bind-mounted: tuning here is a
+# restart-only deploy.
+enabled: true
+window_minutes: 30       # block new signals/executions ±this around the event
+impacts: [High]          # ForexFactory impact levels that count as red-folder

@@ -16,6 +16,7 @@ from .ai import model as ai_model
 from .ai import stats as ai_stats
 from .core import config
 from .core.logging import get_logger
+from .data.news import NewsGuard
 from .data.sources import MarketDataSource
 from .engines.market_structure import MarketStructureEngine
 from .engines.pipeline import SignalPipeline
@@ -83,6 +84,8 @@ class Runtime:
         self.ai_cfg: dict = config.load("engines").get("ai", {})
         self.prob_model = ai_model.ProbabilityModel()
         self._throttle: set[str] = set()
+        # red-folder news guard (fail-open; configs/news.yaml)
+        self.news = NewsGuard()
         self.notifier.trade_executor = self.execute_signal   # Telegram button hook
 
     @staticmethod
@@ -147,6 +150,11 @@ class Runtime:
     def _scan_symbol(self, symbol: str, entry_tf: str, context_tf: str) -> int | None:
         # per-(symbol,TF) cooldown so M15 and H1 don't block each other
         if self.journal.recent_signal_for(symbol, self.cooldown_hours, timeframe=entry_tf):
+            return None
+        # red-folder window: no NEW setups into a macro release (ICT rule)
+        event = self.news.blackout(symbol)
+        if event:
+            log.info("NewsBlackout", symbol=symbol, event=event)
             return None
         df = self.source.fetch(symbol, entry_tf, self.candles)
         htf = self.source.fetch(symbol, context_tf, self.candles)
@@ -228,6 +236,11 @@ class Runtime:
             return f"ℹ️ #{sid} {row.symbol} allaqachon ochilgan (ticket {row.ticket})."
         if row.status != "open":
             return f"⚠️ #{sid} endi ochiq emas (holat: {row.status})."
+        event = self.news.blackout(row.symbol)
+        if event:
+            log.info("NewsBlackoutManual", id=sid, event=event)
+            return (f"⛔️ #{sid} {row.symbol} — yangiliklar oynasi: {event}. "
+                    f"Oyna o'tgach qayta bosing.")
         sig = self.journal.get_signal(sid)
         risk = self.risk.evaluate(sig, self._account_state(row.symbol))
         if not risk.approved:
@@ -508,10 +521,12 @@ class Runtime:
             # allowlisted Telegram commands (/stats, /open, ...)
             if self.notifier.enabled:
                 self.notifier.poll_commands(self.journal)
-            # once-a-day digest
+            # once-a-day digest (+ the weekly equity report on Sundays)
             utc = datetime.now(timezone.utc)
             if utc.hour >= digest_hour and last_digest_day != utc.date():
                 last_digest_day = utc.date()
                 if self.notifier.enabled:
                     self.notifier.send_daily_digest(self.journal)
+                    if utc.weekday() == 6:              # Sunday wrap-up
+                        self.notifier.send_weekly_report(self.journal)
             time.sleep(5)

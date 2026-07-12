@@ -106,6 +106,11 @@ def outcome_message(row: TradeRow, status: str, result_r: float | None = None) -
     label = _OUTCOME_LABEL.get(status, f"<b>{esc(status)}</b>")
     tf = f" · {esc(row.timeframe)}" if getattr(row, "timeframe", None) else ""
     lines = [label, f"#{row.id} <b>{esc(row.symbol)}</b> · {row.direction}{tf}"]
+    strat = getattr(row, "strategy_name", "")
+    if strat:
+        lines.append(f"📌 {esc(strat)}")
+    lines.append(f"📍 Kirish {row.entry} · 🛑 Stop {row.stop_loss}"
+                 + (" · 🎫 real order" if getattr(row, "ticket", None) else ""))
     if result_r is not None:
         emo = "🟢" if result_r > 0 else ("⚪" if abs(result_r) < 0.05 else "🔴")
         tag = "Yakuniy natija" if status in _TERMINAL else "Bookqilingan"

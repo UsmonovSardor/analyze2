@@ -18,6 +18,9 @@ from .base import DetectorContext, StrategyMatch
 class TrendPullback:
     code = "A"
     name = "Trend Pullback"
+    emoji = "📈"
+    tagline = ("Trend ichida EMA50 zonasiga qaytishda kirish — RSI reset, "
+               "sham tasdig'i, 25–75% retrace (Nison + Brooks High-2)")
 
     def detect(self, ctx: DetectorContext) -> StrategyMatch | None:
         cfg = ctx.cfg

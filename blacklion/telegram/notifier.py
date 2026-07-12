@@ -56,6 +56,44 @@ class Notifier:
         return {"inline_keyboard": [[
             {"text": "🚀 Avto-savdo (demo)", "callback_data": f"trade:{sig_id}"}]]}
 
+    def send_weekly_report(self, journal: Journal) -> None:
+        """Equity-curve photo + weekly caption; degrades to text if the curve
+        can't render (too few closes / matplotlib trouble)."""
+        from . import report
+        caption = report.weekly_report_caption(journal.closed_rows(days=7))
+        img = report.render_equity_chart(journal.closed_rows(days=90))
+        if img:
+            self.client.send_photo(img, caption=caption)
+        else:
+            self.client.send(caption)
+
+    def send_strategy_catalog(self, journal: Journal, text: str = "") -> None:
+        """Catalog browser: every detector with its tagline + LIVE stats."""
+        from ..ai.stats import bucket_stats
+        from ..engines.strategies import DETECTORS
+        stats = bucket_stats(journal.closed_rows())
+
+        def live(name: str) -> str:
+            s = stats.get(name)
+            if not s:
+                return "hali statistika yo'q"
+            return (f"n={s['n']} · win {s['win_rate'] * 100:.0f}% · "
+                    f"{s['avg_r']:+.2f}R")
+
+        lines = ["📚 <b>Strategiyalar katalogi</b>", ""]
+        for det in DETECTORS:
+            lines.append(f"{getattr(det, 'emoji', '📌')} <b>{det.name}</b> "
+                         f"(setup {det.code})")
+            tagline = getattr(det, "tagline", "")
+            if tagline:
+                lines.append(f"  <i>{tagline}</i>")
+            lines.append(f"  📊 {live(det.name)}")
+            lines.append("")
+        lines.append(f"🧩 <b>SMC (generic)</b> — katalogga mos kelmagan, lekin "
+                     f"barcha majburiy shartlardan o'tgan setuplar\n"
+                     f"  📊 {live('SMC (generic)')}")
+        self.client.send("\n".join(lines))
+
     def send_daily_digest(self, journal: Journal) -> None:
         text = fmt.daily_digest(journal.stats(7), journal.signals_today())
         try:                                    # per-strategy expectancy block
@@ -124,6 +162,10 @@ class Notifier:
                 self.client.send("📂 <b>Ochiq savdolar:</b>\n" + "\n".join(lines))
         elif cmd in ("digest", "hisobot"):
             self.send_daily_digest(journal)
+        elif cmd in ("report", "haftalik"):
+            self.send_weekly_report(journal)
+        elif cmd in ("strategiya", "strategy", "strategiyalar"):
+            self.send_strategy_catalog(journal, text)
         elif cmd in ("health", "holat", "sogliq"):
             if self.health_provider is not None:
                 self.client.send(fmt.health_message(self.health_provider()))
@@ -138,7 +180,9 @@ class Notifier:
                 "/stats — haftalik statistika\n"
                 "/open — ochiq savdolar\n"
                 "/health — bot sog'lig'i\n"
-                "/digest — kunlik hisobot")
+                "/digest — kunlik hisobot\n"
+                "/report — haftalik hisobot (equity curve)\n"
+                "/strategiya — strategiyalar katalogi")
 
     def send_health_alert(self, report) -> None:
         self.client.send("🚨 <b>Ogohlantirish</b>\n" + fmt.health_message(report))

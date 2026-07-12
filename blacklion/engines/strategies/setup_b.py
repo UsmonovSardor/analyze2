@@ -18,6 +18,9 @@ from .base import DetectorContext, StrategyMatch
 class RangeBreakout:
     code = "B"
     name = "Range Breakout"
+    emoji = "🚀"
+    tagline = ("Siqilgan diapazon hajm bilan buzilib, buzilgan darajani retest "
+               "qilganda kirish — bull/bear-trap rad etiladi (Brooks)")
 
     def detect(self, ctx: DetectorContext) -> StrategyMatch | None:
         cfg = ctx.cfg

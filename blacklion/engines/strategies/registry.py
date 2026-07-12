@@ -7,13 +7,16 @@ from __future__ import annotations
 
 from ...core import config
 from .base import DetectorContext, StrategyMatch
+from .ict_models import AMDPowerOfThree, TurtleSoup, Unicorn
 from .setup_a import TrendPullback
 from .setup_b import RangeBreakout
 
-DETECTORS = [TrendPullback(), RangeBreakout()]
+DETECTORS = [TrendPullback(), RangeBreakout(),
+             TurtleSoup(), Unicorn(), AMDPowerOfThree()]
 
 # strategies.yaml section name per detector code
-_SECTION = {"A": "trend_pullback", "B": "range_breakout"}
+_SECTION = {"A": "trend_pullback", "B": "range_breakout",
+            "TSOUP": "turtle_soup", "UNICORN": "unicorn", "AMD": "amd_po3"}
 
 
 def _cfg() -> dict:
