@@ -65,3 +65,8 @@ ai:
   mode: shadow
   gate_min_p: 0.55
   throttle_min_n: 30     # closed trades before a losing strategy is throttled
+  # Only trades closed ON/AFTER this date count for the throttle. Outcomes
+  # before it were computed by the OLD all-or-nothing resolution (fixed in
+  # 2fb00ef) and by no trade management at all — judging the current system on
+  # that artifact history would permanently block "SMC (generic)".
+  throttle_since: "2026-07-12"

@@ -10,6 +10,7 @@ closes them on SL/TP — mirroring the broker so journal and broker never disagr
 from __future__ import annotations
 
 import time
+from datetime import datetime, timezone
 
 from .ai import model as ai_model
 from .ai import stats as ai_stats
@@ -121,11 +122,18 @@ class Runtime:
 
     def _refresh_throttle(self) -> None:
         """Evidence-based auto-throttle (ai/stats.py): strategies with proven
-        negative expectancy are publish-blocked until they recover."""
+        negative expectancy are publish-blocked until they recover. Only trades
+        closed after ai.throttle_since count — earlier outcomes were produced by
+        the old all-or-nothing resolution and would poison the verdict."""
         try:
+            rows = self.journal.closed_rows()
+            since = str(self.ai_cfg.get("throttle_since", "") or "")
+            if since:
+                cutoff = int(datetime.strptime(since, "%Y-%m-%d")
+                             .replace(tzinfo=timezone.utc).timestamp())
+                rows = [r for r in rows if (r.get("closed_at") or 0) >= cutoff]
             self._throttle = ai_stats.throttled_strategies(
-                self.journal.closed_rows(),
-                min_n=int(self.ai_cfg.get("throttle_min_n", 30)))
+                rows, min_n=int(self.ai_cfg.get("throttle_min_n", 30)))
         except Exception as exc:
             log.warning("ThrottleRefreshFailed", error=str(exc))
             self._throttle = set()

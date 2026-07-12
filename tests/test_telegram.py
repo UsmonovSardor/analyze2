@@ -190,3 +190,14 @@ def test_open_command_lists_trades(journal):
                                                 "chat": {"id": 100}}}]
     Notifier(fc).poll_commands(journal)
     assert "XAUUSD" in fc.sent[0]
+
+
+def test_rate_limit_wait_honors_retry_after_once():
+    from blacklion.telegram.client import TelegramClient
+    w = TelegramClient._rate_limit_wait(429, {"parameters": {"retry_after": 7}}, False)
+    assert w == 7
+    assert TelegramClient._rate_limit_wait(429, {}, True) == 0     # one retry max
+    assert TelegramClient._rate_limit_wait(400, {}, False) == 0    # only 429
+    capped = TelegramClient._rate_limit_wait(
+        429, {"parameters": {"retry_after": 500}}, False)
+    assert capped == 60                                            # sanity cap

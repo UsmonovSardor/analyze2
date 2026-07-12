@@ -204,6 +204,26 @@ def test_time_stop_closes_stale_trade(rt, monkeypatch):
     assert row.result_r is not None and -1.0 < row.result_r <= 0.05
 
 
+def test_throttle_counts_only_post_cutoff_closes(rt):
+    """P5 fairness: outcomes closed before ai.throttle_since were produced by the
+    OLD all-or-nothing resolution — they must not throttle today's strategies."""
+    import time as _t
+    for _ in range(30):
+        sid = rt.journal.record_signal(Signal(
+            symbol="EURUSD", direction="BUY", entry=1.1, stop_loss=1.098,
+            tp1=1.101, tp2=1.105, tp3=1.11, rr=2.5, confidence=88,
+            confluence_score=90, reasons=["x"]))
+        rt.journal.close_signal(sid, "stopped", -1.0)
+    with rt.journal._conn() as c:                     # pretend they closed in 2020
+        c.execute("UPDATE signals SET closed_at=1600000000")
+    rt._refresh_throttle()
+    assert rt._throttle == set()                      # artifact history ignored
+    with rt.journal._conn() as c:                     # same losses closed NOW
+        c.execute("UPDATE signals SET closed_at=?", (int(_t.time()),))
+    rt._refresh_throttle()
+    assert "SMC (generic)" in rt._throttle            # fresh evidence counts
+
+
 def test_execute_signal_opens_and_is_idempotent(rt):
     sid = rt.journal.record_signal(Signal(
         symbol="EURUSD", direction="BUY", entry=1.1000, stop_loss=1.0980,

@@ -127,8 +127,9 @@ class Journal:
     def closed_rows(self, days: int | None = None) -> list[dict]:
         """Closed trades for the expectancy stats engine (blacklion/ai/stats.py):
         strategy/symbol/TF buckets with status, realized R and shadow pred_p."""
-        q = ("SELECT strategy_name, symbol, timeframe, status, result_r, pred_p "
-             "FROM signals WHERE closed_at IS NOT NULL AND result_r IS NOT NULL")
+        q = ("SELECT strategy_name, symbol, timeframe, status, result_r, pred_p, "
+             "closed_at FROM signals "
+             "WHERE closed_at IS NOT NULL AND result_r IS NOT NULL")
         args: tuple = ()
         if days is not None:
             q += " AND closed_at > ?"

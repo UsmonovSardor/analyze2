@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import html
 import json
+import time
 
 import requests
 
@@ -35,7 +36,16 @@ class TelegramClient:
     def configured(self) -> bool:
         return bool(self.token and self.chat_id)
 
-    def _call(self, method: str, payload: dict, timeout: int = 15) -> dict | None:
+    @staticmethod
+    def _rate_limit_wait(status: int, body: dict, retried: bool) -> int:
+        """Seconds to sleep before ONE retry on 429 (0 = don't retry). A burst of
+        outcome messages (e.g. a backlog flush) must not silently drop sends."""
+        if status != 429 or retried:
+            return 0
+        return min(int(body.get("parameters", {}).get("retry_after", 5) or 5), 60)
+
+    def _call(self, method: str, payload: dict, timeout: int = 15,
+              _retried: bool = False) -> dict | None:
         if not self.token:
             log.info("TelegramNotConfigured", method=method,
                      preview=str(payload.get("text", ""))[:120])
@@ -44,6 +54,11 @@ class TelegramClient:
             r = requests.post(_API.format(token=self.token, method=method),
                               json=payload, timeout=timeout)
             body = r.json() if r.content else {}
+            wait = self._rate_limit_wait(r.status_code, body, _retried)
+            if wait:
+                log.info("TelegramRateLimited", method=method, wait=wait)
+                time.sleep(wait)
+                return self._call(method, payload, timeout, _retried=True)
             if not r.ok:
                 log.warning("TelegramError", method=method, status=r.status_code,
                             desc=str(body.get("description", ""))[:150])
@@ -77,17 +92,25 @@ class TelegramClient:
         data = {"chat_id": chat_id or self.chat_id, "caption": cap, "parse_mode": "HTML"}
         if reply_markup:
             data["reply_markup"] = json.dumps(reply_markup)
-        try:
-            r = requests.post(
-                _API.format(token=self.token, method="sendPhoto"), data=data,
-                files={"photo": ("signal.png", image, "image/png")}, timeout=30)
-            body = r.json() if r.content else {}
-            if not r.ok:
-                log.warning("TelegramError", method="sendPhoto", status=r.status_code,
-                            desc=str(body.get("description", ""))[:150])
-        except requests.RequestException as exc:
-            log.warning("TelegramNetworkError", method="sendPhoto", error=str(exc))
-            return None
+        body: dict = {}
+        for retried in (False, True):
+            try:
+                r = requests.post(
+                    _API.format(token=self.token, method="sendPhoto"), data=data,
+                    files={"photo": ("signal.png", image, "image/png")}, timeout=30)
+                body = r.json() if r.content else {}
+            except requests.RequestException as exc:
+                log.warning("TelegramNetworkError", method="sendPhoto", error=str(exc))
+                return None
+            wait = self._rate_limit_wait(r.status_code, body, retried)
+            if not wait:
+                if not r.ok:
+                    log.warning("TelegramError", method="sendPhoto",
+                                status=r.status_code,
+                                desc=str(body.get("description", ""))[:150])
+                break
+            log.info("TelegramRateLimited", method="sendPhoto", wait=wait)
+            time.sleep(wait)
         if overflow:
             self.send(overflow, chat_id=chat_id)
         return body["result"]["message_id"] if body.get("ok") else None
