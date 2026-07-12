@@ -74,15 +74,19 @@ def signal_message(sig: Signal, sig_id: int, market_ctx: str = "") -> str:
 
 _OUTCOME_LABEL = {
     "tp1": "🎯 <b>TP1 urildi</b> — 40% olindi, stop breakeven'ga",
-    "tp2": "🎯 <b>TP2 urildi</b> — yana 40% olindi",
+    "tp2": "🎯 <b>TP2 urildi</b> — yana 40% olindi, runner trailing'da",
     "tp3": "✅ <b>TP3 urildi</b> — pozitsiya to'liq yopildi",
     "stopped": "🛑 <b>Stop-loss urildi</b>",
     "breakeven": "⚪ <b>Breakeven'da yopildi</b> — zarar yo'q",
+    "trailed": "🟢 <b>Trailing stop urildi</b> — runner foyda bilan yopildi",
+    "invalidated": "⚠️ <b>Struktura buzildi</b> — stop kutmasdan erta yopildi",
+    "stale": "⏳ <b>Vaqt-stop</b> — harakat bo'lmadi, erta yopildi",
 }
 
 
 # terminal = trade fully closed; tp1/tp2 are partial scale-outs, runner still live
-_TERMINAL = {"tp3", "stopped", "breakeven", "expired"}
+_TERMINAL = {"tp3", "stopped", "breakeven", "expired",
+             "trailed", "invalidated", "stale"}
 
 
 def outcome_message(row: TradeRow, status: str, result_r: float | None = None) -> str:

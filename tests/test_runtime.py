@@ -155,6 +155,55 @@ def test_tp2_then_reversal_books_both_partials(rt):
     assert row.status == "breakeven" and row.result_r == 1.2
 
 
+def test_tp2_runner_trails_atr_and_locks_profit(rt):
+    """P4: after TP2 the runner trails 1×ATR behind price instead of sitting at
+    breakeven — a reversal closes it IN PROFIT ("trailed"), never back at 0."""
+    sid = _long(rt)
+    _set_last_bar(rt, low=1.1001, high=1.1015)     # → tp1
+    rt.check_outcomes()
+    _set_last_bar(rt, low=1.1001, high=1.1055)     # → tp2
+    rt.check_outcomes()
+    assert rt.journal.get(sid).status == "tp2"
+    # runner spikes far above (flat-frame ATR ≈ 0.40) then the same bar's low
+    # tags the trailed stop (≈ high − ATR) — the runner exits in profit
+    _set_last_bar(rt, low=1.19, high=1.60)
+    rt.check_outcomes()
+    row = rt.journal.get(sid)
+    assert row.status == "trailed"
+    assert row.result_r > 1.2                      # strictly better than breakeven
+
+
+def test_opposite_choch_exits_early_before_stop(rt, monkeypatch):
+    """P4: an opposite CHOCH while the trade is open closes it at market —
+    a small controlled loss instead of riding to the full −1R stop."""
+    from types import SimpleNamespace
+    sid = _long(rt)
+    _set_last_bar(rt, low=1.0995, high=1.1005)     # neither TP nor stop touched
+    monkeypatch.setattr(rt.structure, "analyze", lambda *a, **k: SimpleNamespace(
+        choch=True, choch_direction="bearish"))
+    rt.check_outcomes()
+    row = rt.journal.get(sid)
+    assert row.status == "invalidated"
+    assert row.result_r is not None and -1.0 < row.result_r <= 0.05
+
+
+def test_time_stop_closes_stale_trade(rt, monkeypatch):
+    """P4: N bars without progress → exit as 'stale' instead of tying up risk."""
+    import time as _t
+    from types import SimpleNamespace
+    sid = _long(rt)
+    with rt.journal._conn() as c:                  # age the trade 13 H1 bars
+        c.execute("UPDATE signals SET created_at=? WHERE id=?",
+                  (int(_t.time()) - 13 * 3600, sid))
+    _set_last_bar(rt, low=1.0995, high=1.1005)     # never reached +0.5R
+    monkeypatch.setattr(rt.structure, "analyze", lambda *a, **k: SimpleNamespace(
+        choch=False, choch_direction=""))          # isolate the time-stop rule
+    rt.check_outcomes()
+    row = rt.journal.get(sid)
+    assert row.status == "stale"
+    assert row.result_r is not None and -1.0 < row.result_r <= 0.05
+
+
 def test_execute_signal_opens_and_is_idempotent(rt):
     sid = rt.journal.record_signal(Signal(
         symbol="EURUSD", direction="BUY", entry=1.1000, stop_loss=1.0980,

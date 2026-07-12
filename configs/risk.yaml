@@ -13,3 +13,12 @@ correlation_groups:
   - [EURUSD, GBPUSD]
   - [XAUUSD, XAGUSD]
 sizing_model: fixed_risk_pct    # fixed_lot | fixed_risk_pct | atr_based
+
+# Smart trade management — cut losses BEFORE the full stop (the broker SL stays
+# as catastrophe insurance). Identical logic for shadow and real trades so the
+# ML labels stay consistent. Target: full −1R stops < 30% of losers.
+trade_management:
+  invalidation_exit: true    # opposite CHOCH on the entry TF while open → exit now
+  time_stop_bars: 12         # open this many bars without reaching…
+  time_stop_min_r: 0.5       # …+this R → exit as "stale" (dead trade)
+  trail_atr_mult: 1.0        # post-TP2 runner trails this×ATR behind price (0 = off)

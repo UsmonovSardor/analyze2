@@ -77,7 +77,8 @@ def render_signal_chart(sig, df, timeframe: str = "H1", bars: int = 60,
 _OUTCOME_BADGE = {
     "tp1": ("TP1 ✓", _UP), "tp2": ("TP2 ✓", _UP), "tp3": ("TP3 ✓✓✓", _UP),
     "stopped": ("STOP", _DOWN), "breakeven": ("BREAKEVEN", _MUTED),
-    "expired": ("BEKOR", _MUTED),
+    "expired": ("BEKOR", _MUTED), "trailed": ("TRAIL ✓", _UP),
+    "invalidated": ("ERTA YOPILDI", _MUTED), "stale": ("VAQT-STOP", _MUTED),
 }
 
 

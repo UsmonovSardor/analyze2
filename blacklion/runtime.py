@@ -31,6 +31,10 @@ log = get_logger("runtime")
 # live and backtest agree on a trade's R (doc 04/21). Must sum to 1.0.
 _SCALE = (0.4, 0.4, 0.2)
 
+# entry-TF bar length in minutes — for the time-stop's bars-open estimate
+_TF_MIN = {"M1": 1, "M5": 5, "M15": 15, "M30": 30,
+           "H1": 60, "H4": 240, "D1": 1440}
+
 
 class Runtime:
     def __init__(self, source: MarketDataSource, broker: Broker,
@@ -70,6 +74,8 @@ class Runtime:
         # candidates that still label the ML dataset) — the group sees only 80+.
         self.min_publish: int = int(config.engine("rule_engine")
                                     .get("minimum_publish_confidence", 80))
+        # smart trade management knobs (risk.yaml) — early exits + runner trail
+        self.mgmt: dict = config.load("risk").get("trade_management", {})
         self.notifier.trade_executor = self.execute_signal   # Telegram button hook
 
     @staticmethod
@@ -232,6 +238,21 @@ class Runtime:
         reached = (lambda lvl: hi >= lvl) if long else (lambda lvl: lo <= lvl)
         # after TP1 the stop trails up to breakeven (entry) and stays there
         eff_sl = e if row.status in ("tp1", "tp2") else row.stop_loss
+
+        # ── ATR-trailing runner (post-TP2): lock profit instead of sitting at
+        # breakeven — a reversal closes the runner in profit, not at 0.
+        atr = (float(df["atr"].iloc[-1])
+               if df is not None and "atr" in df and float(df["atr"].iloc[-1]) > 0
+               else None)
+        trail_mult = float(self.mgmt.get("trail_atr_mult", 0) or 0)
+        if row.status == "tp2" and trail_mult and atr:
+            trail = (hi - trail_mult * atr) if long else (lo + trail_mult * atr)
+            better = max(e, trail) if long else min(e, trail)
+            if better != eff_sl:
+                eff_sl = better
+                if row.ticket:                       # keep the broker stop in sync
+                    self._broker_op(lambda: self.broker.modify(
+                        row.ticket, stop_loss=eff_sl))
         stop_hit = (lo <= eff_sl) if long else (hi >= eff_sl)
 
         if stop_hit:
@@ -242,8 +263,10 @@ class Runtime:
             if row.status == "tp2":
                 booked += w2 * sign * (row.tp2 - e) / r
             rem = {"tp1": w2 + w3, "tp2": w3}[row.status]   # runner still live
-            booked += rem * sign * (eff_sl - e) / r          # = 0 at breakeven
-            self._close(row, "breakeven", round(booked, 2), df)
+            booked += rem * sign * (eff_sl - e) / r          # 0 at BE, >0 when trailed
+            trailed = (eff_sl > e) if long else (eff_sl < e)
+            self._close(row, "trailed" if trailed else "breakeven",
+                        round(booked, 2), df)
         elif reached(row.tp3) and row.status == "tp2":
             total = sign * (w1 * (row.tp1 - e) + w2 * (row.tp2 - e)
                             + w3 * (row.tp3 - e)) / r
@@ -253,6 +276,43 @@ class Runtime:
             self._advance(row, "tp2", round(booked, 2), df)
         elif reached(row.tp1) and row.status == "open":
             self._advance(row, "tp1", round(w1 * sign * (row.tp1 - e) / r, 2), df)
+        elif row.status == "open":
+            self._early_exit(row, df, e, r, sign)
+
+    def _early_exit(self, row, df, e: float, r: float, sign: float) -> None:
+        """Cut a dead or invalidated trade BEFORE the full stop (risk.yaml
+        trade_management). Runs only when the bar hit neither a TP nor the stop,
+        so booking at the current close is safe."""
+        if df is None or "close" not in df:
+            return
+        close = float(df["close"].iloc[-1])
+        unreal = max(-1.0, sign * (close - e) / r)     # stop path handles < −1R
+
+        # 1 — structure invalidation: an opposite CHOCH says the setup's premise
+        # is gone; waiting for the stop just donates the rest of the R.
+        if self.mgmt.get("invalidation_exit", True) and len(df) >= 30:
+            try:
+                st = self.structure.analyze(row.symbol, df)
+                against = "bearish" if row.direction == "BUY" else "bullish"
+                if st.choch and st.choch_direction == against:
+                    log.info("EarlyExit", id=row.id, kind="invalidated",
+                             r=round(unreal, 2))
+                    self._close(row, "invalidated", round(unreal, 2), df)
+                    return
+            except Exception as exc:                   # analysis must never kill the loop
+                log.warning("InvalidationCheckFailed", id=row.id, error=str(exc))
+
+        # 2 — time-stop: N bars without ever printing TP1 and still below the
+        # progress floor = a dead trade occupying risk budget.
+        bars_limit = int(self.mgmt.get("time_stop_bars", 0) or 0)
+        if bars_limit and row.created_at:
+            tf_min = _TF_MIN.get(row.timeframe, 60)
+            bars_open = (time.time() - row.created_at) / (tf_min * 60)
+            if bars_open >= bars_limit and \
+                    unreal < float(self.mgmt.get("time_stop_min_r", 0.5)):
+                log.info("EarlyExit", id=row.id, kind="stale",
+                         bars=int(bars_open), r=round(unreal, 2))
+                self._close(row, "stale", round(unreal, 2), df)
 
     def _close(self, row, status: str, result_r: float, df=None) -> None:
         self.journal.close_signal(row.id, status, result_r)
