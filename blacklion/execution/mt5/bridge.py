@@ -123,8 +123,9 @@ class MT5Broker:
         res = mt5.order_send(request)
         latency = int((time.time() - t0) * 1000)
         if res is None or res.retcode != mt5.TRADE_RETCODE_DONE:
-            return OrderResult(ok=False, latency_ms=latency,
-                               error=f"retcode {getattr(res, 'retcode', '?')}")
+            rc = int(getattr(res, "retcode", 0) or 0)
+            return OrderResult(ok=False, latency_ms=latency, retcode=rc,
+                               error=f"retcode {rc or '?'}")
         return OrderResult(ok=True, ticket=str(res.order), fill_price=float(res.price),
                            volume=float(res.volume), slippage=abs(res.price - price),
                            latency_ms=latency)
@@ -164,7 +165,8 @@ class MT5Broker:
         }
         res = mt5.order_send(request)          # positional dict — see place_order note
         if res is None or res.retcode != mt5.TRADE_RETCODE_DONE:
-            return OrderResult(ok=False, error=f"retcode {getattr(res, 'retcode', '?')}")
+            rc = int(getattr(res, "retcode", 0) or 0)
+            return OrderResult(ok=False, retcode=rc, error=f"retcode {rc or '?'}")
         return OrderResult(ok=True, ticket=ticket, fill_price=float(res.price),
                            volume=float(res.volume))
 

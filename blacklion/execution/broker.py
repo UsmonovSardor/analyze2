@@ -30,6 +30,7 @@ class OrderResult(BaseModel):
     slippage: float = 0.0
     latency_ms: int = 0
     error: str = ""
+    retcode: int = 0                 # raw broker return code (MT5 TRADE_RETCODE_*); 0 ⇒ n/a
 
 
 class BrokerPosition(BaseModel):

@@ -23,6 +23,21 @@ from .broker import Broker, OrderRequest, OrderResult
 
 log = get_logger("execution")
 
+# MT5 TRADE_RETCODE_* codes where retrying the identical request is pointless — the
+# broker's answer won't change within a retry window. Market-closed (10018) is the
+# common one for weekend Avto-savdo taps; the rest are hard rejections (trade/
+# AutoTrading disabled, no money, invalid stops/fill). Fail fast, don't spam retries.
+_NON_RETRYABLE: frozenset[int] = frozenset({
+    10016,   # INVALID_STOPS       — SL/TP bad, resubmitting same is futile
+    10017,   # TRADE_DISABLED      — trading disabled for the account
+    10018,   # MARKET_CLOSED       — session shut (weekend/holiday)
+    10019,   # NO_MONEY            — insufficient funds
+    10026,   # SERVER_DISABLES_AT  — AutoTrading off on the server
+    10027,   # CLIENT_DISABLES_AT  — AutoTrading off in the terminal
+    10030,   # INVALID_FILL        — filling mode unsupported (already probed adaptively)
+})
+MARKET_CLOSED = 10018
+
 
 class ExecutionResult(BaseModel):
     status: Literal["EXECUTED", "REJECTED", "FAILED"]
@@ -32,6 +47,7 @@ class ExecutionResult(BaseModel):
     slippage: float = 0.0
     latency_ms: int = 0
     reason: str = ""
+    retcode: int = 0                 # raw broker return code (0 ⇒ n/a); lets callers craft messages
 
 
 class ExecutionEngine:
@@ -68,7 +84,7 @@ class ExecutionEngine:
         result = self._submit_with_retry(req)
         if not result.ok:
             bus.publish("ExecutionFailed", symbol=signal.symbol, error=result.error)
-            return ExecutionResult(status="FAILED", reason=result.error)
+            return ExecutionResult(status="FAILED", reason=result.error, retcode=result.retcode)
 
         cap = self.max_slippage.get(signal.symbol)
         if cap is not None and result.slippage > cap:
@@ -103,8 +119,13 @@ class ExecutionEngine:
             last = self.broker.place_order(req)
             if last.ok:
                 return last
+            if last.retcode in _NON_RETRYABLE:        # broker's answer won't change — fail fast
+                log.info("OrderRejected", symbol=req.symbol, retcode=last.retcode,
+                         error=last.error)
+                return last
             log.warning("OrderRetry", symbol=req.symbol, attempt=attempt, error=last.error)
-            time.sleep(min(0.5 * attempt, 2.0))       # exponential-ish backoff
+            if attempt < self.max_retries:            # no backoff sleep after the final try
+                time.sleep(min(0.5 * attempt, 2.0))   # exponential-ish backoff
         return last
 
     # ── Position management (doc 19 §10–12) ───────────────────────────────

@@ -18,6 +18,7 @@ from .engines.market_structure import MarketStructureEngine
 from .engines.pipeline import SignalPipeline
 from .features import FeatureEngineer
 from .execution import Broker, ExecutionEngine
+from .execution.engine import MARKET_CLOSED
 from .journal import Journal
 from .monitoring import HealthMonitor, HealthReport
 from .risk import AccountState, OpenPosition, RiskEngine
@@ -160,7 +161,11 @@ class Runtime:
             return f"⛔️ #{sid} risk rad etdi: {', '.join(risk.reasons) or 'limit'}"
         result = self.execution.execute(sig, risk, take_profit=sig.tp3)
         if result.status != "EXECUTED":
-            log.info("ManualExecFailed", id=sid, status=result.status, reason=result.reason)
+            log.info("ManualExecFailed", id=sid, status=result.status,
+                     reason=result.reason, retcode=result.retcode)
+            if result.retcode == MARKET_CLOSED:
+                return (f"❌ #{sid} {row.symbol} — bozor hozir yopiq (dam olish kuni yoki "
+                        f"sessiya tashqarisida). Bozor ochilganda tugmani qayta bosing.")
             return f"❌ #{sid} ochilmadi: {result.reason}"
         self.journal.record_execution(sid, result.ticket, result.volume, result.fill_price)
         log.info("ManualExecuted", id=sid, symbol=row.symbol, ticket=result.ticket,

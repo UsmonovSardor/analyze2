@@ -102,3 +102,21 @@ def test_retry_then_success(monkeypatch, broker):
     monkeypatch.setattr("blacklion.execution.engine.time.sleep", lambda *_: None)
     res = eng.execute(signal(), approved())
     assert res.status == "EXECUTED" and calls["n"] == 2
+
+
+def test_market_closed_fails_fast_without_retry(monkeypatch, broker):
+    """Retcode 10018 (market closed) is authoritative — one attempt, no retry spam,
+    and the retcode is surfaced so the runtime can craft a "bozor yopiq" message."""
+    from blacklion.execution.broker import OrderResult
+    from blacklion.execution.engine import MARKET_CLOSED
+
+    calls = {"n": 0}
+
+    def closed(req):
+        calls["n"] += 1
+        return OrderResult(ok=False, retcode=MARKET_CLOSED, error="retcode 10018")
+
+    monkeypatch.setattr(broker, "place_order", closed)
+    res = ExecutionEngine(broker, max_retries=3).execute(signal(), approved())
+    assert res.status == "FAILED" and res.retcode == MARKET_CLOSED
+    assert calls["n"] == 1                             # no wasted retries on a closed market
