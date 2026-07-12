@@ -62,7 +62,7 @@ def signal_message(sig: Signal, sig_id: int, market_ctx: str = "") -> str:
         f"🎯 TP2: <b>{sig.tp2}</b>  <i>(+{gain(sig.tp2):.2f}% · {rr(sig.tp2):.1f}R)</i>",
         f"🎯 TP3: <b>{sig.tp3}</b>  <i>(+{gain(sig.tp3):.2f}% · {rr(sig.tp3):.1f}R)</i>",
         "",
-        "✅ <b>Sabablar:</b>",
+        "🔎 <b>Tahlil:</b>",
     ]
     lines += [f"  • {esc(reason)}" for reason in sig.reasons]
     if market_ctx:

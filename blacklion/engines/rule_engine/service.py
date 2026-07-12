@@ -117,7 +117,8 @@ class RuleEngine:
                                 rejected=rejected)
 
         # ── Build the signal — anchor levels to structure ─────────────────
-        reasons = self._reasons(direction, structure, liquidity, ob, fvg, ict)
+        reasons = self._reasons(symbol, df, direction, structure, liquidity,
+                                ob, fvg, ict)
         signal = self._build_signal(symbol, df, direction, structure, ob, fvg, confluence)
         if signal is None:
             rejected.append("risk/reward below minimum after level anchoring")
@@ -182,21 +183,84 @@ class RuleEngine:
         base = 0.7 * confluence + 0.3 * structure.strength
         return max(0, min(100, round(base)))
 
-    def _reasons(self, direction, structure, liquidity, ob, fvg, ict) -> list[str]:
-        r = [f"{structure.trend.value} structure",
-             f"{'Bullish' if direction == 'BUY' else 'Bearish'} "
-             f"{'CHOCH' if structure.choch else 'BOS'}"]
+    # Uzbek display names (professional caption; technical terms stay latin)
+    _TREND_UZ = {
+        "Strong Bullish": "Kuchli ko'tarilish", "Bullish": "Ko'tarilish",
+        "Weak Bullish": "Zaif ko'tarilish", "Sideways": "Yonlama",
+        "Weak Bearish": "Zaif tushish", "Bearish": "Tushish",
+        "Strong Bearish": "Kuchli tushish",
+    }
+    _KZ_UZ = {"asian": "Osiyo", "london": "London", "new_york": "Nyu-York",
+              "ln_ny_overlap": "London–NY kesishuvi"}
+
+    def _reasons(self, symbol, df, direction, structure, liquidity,
+                 ob, fvg, ict) -> list[str]:
+        """Data-valued Uzbek reasons — every line carries the actual numbers the
+        engines saw, so no two signals read alike (user demand: professional,
+        specific reasoning instead of the same canned five lines)."""
+        digits = int(config.load("symbols")["symbols"]
+                     .get(symbol, {}).get("digits", 5))
+
+        def p(x: float | None) -> str:
+            return "?" if x is None else f"{x:.{digits}f}".rstrip("0").rstrip(".")
+
+        r: list[str] = []
+
+        # ── structure: trend + strength + break + protective swing ───────
+        trend_uz = self._TREND_UZ.get(structure.trend.value, structure.trend.value)
+        brk = "CHOCH" if structure.choch else "BOS"
+        brk_dir = structure.choch_direction if structure.choch else structure.bos_direction
+        swing = structure.last_swing_low if direction == "BUY" else structure.last_swing_high
+        r.append(f"{trend_uz} tuzilma {structure.structure} "
+                 f"(kuch {structure.strength}/100) · {brk_dir} {brk}"
+                 + (f" · himoya swing {p(swing)}" if swing else ""))
+
+        # ── liquidity: what was swept / where the pool sits ───────────────
         if liquidity.liquidity_swept:
-            r.append("Liquidity sweep")
+            side = "sell-side" if liquidity.sweep_direction == "bullish" else "buy-side"
+            hunt = " (stop-hunt)" if liquidity.stop_hunt else ""
+            r.append(f"{side} likvidlik supurildi{hunt}"
+                     + (f" · pool {p(liquidity.nearest_pool)}"
+                        if liquidity.nearest_pool else ""))
+
+        # ── zone: OB / FVG with real price bands + scores ─────────────────
         if ob:
-            r.append(f"{ob.quality} Order Block")
+            fresh = " · yangi" if ob.fresh else ""
+            r.append(f"{ob.quality} Order Block {p(ob.price_low)}–{p(ob.price_high)} "
+                     f"(score {ob.score}){fresh}")
         if fvg.nearest:
-            r.append(f"{fvg.nearest.quality} FVG")
-        r.append(f"{ict.premium_discount} zone")
-        if ict.ote:
-            r.append("OTE")
+            g = fvg.nearest
+            r.append(f"{g.quality} FVG {p(g.gap_low)}–{p(g.gap_high)} "
+                     f"({g.filled_pct:.0f}% to'ldirilgan)")
+
+        # ── location + session ────────────────────────────────────────────
+        loc = (f"{ict.premium_discount} zona (equilibrium {p(ict.equilibrium)})")
+        if ict.ote and ict.ote_zone:
+            loc += f" · OTE {p(ict.ote_zone[0])}–{p(ict.ote_zone[1])}"
         if ict.kill_zone:
-            r.append(f"{ict.kill_zone} kill zone")
+            loc += f" · {self._KZ_UZ.get(ict.kill_zone, ict.kill_zone)} kill zone"
+        r.append(loc)
+
+        # ── momentum: RSI turn + EMA stack with values ────────────────────
+        if "rsi" in df and len(df) >= 2:
+            rsi_now, rsi_prev = float(df["rsi"].iloc[-1]), float(df["rsi"].iloc[-2])
+            turn = "ko'tarilmoqda" if rsi_now >= rsi_prev else "pasaymoqda"
+            r.append(f"RSI {rsi_prev:.1f}→{rsi_now:.1f} {turn}"
+                     + (f" · EMA50 {p(float(df['ema50'].iloc[-1]))} "
+                        f"{'>' if float(df['ema50'].iloc[-1]) >= float(df['ema200'].iloc[-1]) else '<'}"
+                        f" EMA200 {p(float(df['ema200'].iloc[-1]))}"
+                        if "ema50" in df and "ema200" in df else ""))
+
+        # ── volatility health ─────────────────────────────────────────────
+        if "atr" in df and len(df) >= 20:
+            atr = float(df["atr"].iloc[-1])
+            avg = float(df["atr"].tail(50).mean()) or atr
+            if avg > 0:
+                ratio = atr / avg
+                state = ("sog'lom" if 0.8 <= ratio <= 1.5
+                         else "past" if ratio < 0.8 else "keskin")
+                r.append(f"ATR {p(atr)} — {state} volatillik "
+                         f"(o'rtachaning {ratio:.1f}×)")
         return r
 
     def _build_signal(self, symbol, df, direction, structure, ob, fvg,
