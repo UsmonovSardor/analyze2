@@ -119,7 +119,11 @@ class RuleEngine:
         # ── Build the signal — anchor levels to structure ─────────────────
         reasons = self._reasons(symbol, df, direction, structure, liquidity,
                                 ob, fvg, ict)
-        signal = self._build_signal(symbol, df, direction, structure, ob, fvg, confluence)
+        confidence = self._confidence(confluence, structure, liquidity,
+                                      ob_aligned, fvg_aligned, ict,
+                                      htf_bullish, direction)
+        signal = self._build_signal(symbol, df, direction, structure, ob, fvg,
+                                    confluence, confidence)
         if signal is None:
             rejected.append("risk/reward below minimum after level anchoring")
             return RuleDecision(symbol=symbol, decision="NO TRADE",
@@ -178,10 +182,29 @@ class RuleEngine:
             return max(0.4, ratio / 0.8)
         return max(0.4, 1.5 / ratio)
 
-    def _confidence(self, confluence: int, structure: StructureResult) -> int:
-        # confidence blends confluence with structure quality (doc 15 §11)
-        base = 0.7 * confluence + 0.3 * structure.strength
-        return max(0, min(100, round(base)))
+    def _confidence(self, confluence: int, structure: StructureResult,
+                    liquidity, ob_aligned: bool, fvg_aligned: bool, ict,
+                    htf_bullish: bool | None, direction) -> int:
+        """Confidence spreads the quality scale instead of clustering at 60–70
+        (doc 15 §11 recalibrated): a base from confluence + structure strength,
+        plus explicit bonuses for the independent confirmations that actually
+        distinguish an A-setup. Only ≥ minimum_publish_confidence signals are
+        published; the rest stay journal-only (ML training shadow candidates)."""
+        base = 0.5 * confluence + 0.2 * structure.strength
+        extras = 0
+        if liquidity.liquidity_swept:
+            extras += 8              # liquidity taken → institutional footprint
+        if ob_aligned and fvg_aligned:
+            extras += 6              # OB and FVG both confirm the zone
+        if structure.trend.name.startswith("STRONG"):
+            extras += 6
+        if ict.kill_zone:
+            extras += 4
+        if ict.ote:
+            extras += 4
+        if htf_bullish is not None and (direction == "BUY") == htf_bullish:
+            extras += 5              # higher-timeframe agreement
+        return max(0, min(100, round(base + extras)))
 
     # Uzbek display names (professional caption; technical terms stay latin)
     _TREND_UZ = {
@@ -264,7 +287,7 @@ class RuleEngine:
         return r
 
     def _build_signal(self, symbol, df, direction, structure, ob, fvg,
-                      confluence) -> Signal | None:
+                      confluence, confidence) -> Signal | None:
         atr = float(df["atr"].iloc[-1]) if "atr" in df and df["atr"].iloc[-1] > 0 else \
             float((df["high"] - df["low"]).tail(14).mean())
         entry = float(df["close"].iloc[-1])
@@ -314,5 +337,5 @@ class RuleEngine:
             symbol=symbol, direction=direction,  # type: ignore[arg-type]
             entry=e, stop_loss=sl,
             tp1=tp1, tp2=tp2, tp3=tp3, rr=round(rr, 2),
-            confidence=self._confidence(confluence, structure),
+            confidence=confidence,
             confluence_score=confluence, reasons=[])

@@ -49,6 +49,26 @@ def test_scan_records_signal_when_generated(rt, monkeypatch):
     assert len(rt.broker.positions()) == 1
 
 
+def test_low_confidence_signal_is_shadowed_not_published(rt, monkeypatch):
+    """Publish tier: a signal below minimum_publish_confidence is journaled
+    (labelled ML data) but never sent to Telegram and never auto-traded."""
+    sig = Signal(symbol="EURUSD", direction="BUY", entry=1.1000, stop_loss=1.0980,
+                 tp1=1.1010, tp2=1.1050, tp3=1.1100, rr=2.5, confidence=62,
+                 confluence_score=66, reasons=["weak"])
+    from blacklion.engines.rule_engine import RuleDecision
+    monkeypatch.setattr(rt.pipeline, "run", lambda *a, **k: RuleDecision(
+        symbol="EURUSD", decision="BUY", confluence_score=66, confidence=62,
+        reasons=["weak"], signal=sig))
+    published = []
+    monkeypatch.setattr(rt.notifier, "on_signal",
+                        lambda *a, **k: published.append(a))
+    ids = rt.scan_once()
+    assert len(ids) == 1                      # journaled → ML candidate
+    assert published == []                    # NOT sent to the group
+    assert rt.journal.get(ids[0]).ticket is None   # NOT auto-traded
+    assert rt.broker.positions() == []
+
+
 def test_cooldown_blocks_second_scan(rt, monkeypatch):
     sig = Signal(symbol="EURUSD", direction="BUY", entry=1.1, stop_loss=1.098,
                  tp1=1.101, tp2=1.105, tp3=1.11, rr=2.5, confidence=88,

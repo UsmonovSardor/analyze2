@@ -131,7 +131,7 @@ def test_stored_signal_rr_survives_tick_rounding():
         structure = SimpleNamespace(
             last_swing_high=69040.0, last_swing_low=68760.0, strength=70)
         sig = eng._build_signal("JPN225", df, "SELL", structure,
-                                ob=None, fvg=None, confluence=80)
+                                ob=None, fvg=None, confluence=80, confidence=80)
         if sig is None:
             continue
         r = abs(sig.entry - sig.stop_loss)

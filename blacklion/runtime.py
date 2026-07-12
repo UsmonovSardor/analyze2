@@ -66,6 +66,10 @@ class Runtime:
         # only when the user taps the "Avto-savdo" button (manual mode). main() sets
         # this per broker mode; default True preserves auto/paper-execute behaviour.
         self.auto_execute: bool = config.env("BL_AUTO_EXECUTE", "1") == "1"
+        # Publish tier: signals below this confidence stay journal-only (shadow
+        # candidates that still label the ML dataset) — the group sees only 80+.
+        self.min_publish: int = int(config.engine("rule_engine")
+                                    .get("minimum_publish_confidence", 80))
         self.notifier.trade_executor = self.execute_signal   # Telegram button hook
 
     @staticmethod
@@ -127,6 +131,14 @@ class Runtime:
             self.journal.record_features(sid, feats)
         except Exception as exc:
             log.error("FeatureError", symbol=symbol, error=str(exc))
+        # Publish tier — sub-threshold signals are recorded (labelled ML data,
+        # cooldown applies) but never published or traded: the group only ever
+        # sees top-tier signals and never a button on a weak setup.
+        if sig.confidence < self.min_publish:
+            log.info("SignalShadowed", id=sid, symbol=symbol, tf=entry_tf,
+                     confidence=sig.confidence, min_publish=self.min_publish)
+            return sid
+
         self.notifier.on_signal(sig, sid, df=df, timeframe=entry_tf,
                                 market_ctx=f"{symbol} · {entry_tf}")
 

@@ -33,6 +33,11 @@ ict:
 rule_engine:
   minimum_confluence_score: 65    # calibrated from backtest (was 80, unreachable)
   minimum_confidence: 60
+  # Publish tier: only signals with confidence ≥ this reach Telegram (and the
+  # Avto-savdo button / auto-execute). Weaker passes are journaled SILENTLY as
+  # shadow candidates — they still label the ML training set, but the group only
+  # ever sees top-tier signals (user demand: 80–90, not 60).
+  minimum_publish_confidence: 80
   require_htf_alignment: true
   allow_countertrend: false
   # doc 15 §10 weights (must sum to 100). OB+FVG folded into one "zone" so the
