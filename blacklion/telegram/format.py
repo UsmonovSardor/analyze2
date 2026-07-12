@@ -53,6 +53,7 @@ def signal_message(sig: Signal, sig_id: int, market_ctx: str = "") -> str:
     loss_pct = abs(sig.stop_loss - sig.entry) / sig.entry * 100
     lines = [
         f"{arrow} <b>{sig.direction}</b> · <b>{esc(sig.symbol)}</b> · #{sig_id}",
+        f"📌 <b>{esc(sig.strategy_name)}</b>",
         f"📊 Ishonch <b>{sig.confidence}/100</b> · konfluens {sig.confluence_score} "
         f"{_bar(sig.confidence)}",
         "",

@@ -1,0 +1,25 @@
+# Named strategy detectors (docs/strategies/strategy.md — deterministic port of
+# the analyze bot's catalog). Bind-mounted like every config: tuning params here
+# is a RESTART-only deploy, no image rebuild.
+#
+# Detector scores use the 7-factor scorecard (max 10, catalog minimum 6). Do NOT
+# ratchet min_score up on a losing week — that is the overfitting trap; the P5
+# stats engine throttles underperformers on evidence (n≥30).
+
+trend_pullback:            # Setup A — Nison reversal + Brooks High-2
+  enabled: true
+  ema_zone_atr: 1.0        # entry must sit within ±this×ATR of EMA50
+  retrace_min: 0.25        # 25–75% of the prior swing (Brooks 75% rule)
+  retrace_max: 0.75
+  rsi_reset: 45            # long: RSI dipped below this (short mirrors at 100-45)
+  rsi_lookback: 6
+  min_score: 6
+
+range_breakout:            # Setup B — Brooks breakout + retest
+  enabled: true
+  range_bars: 30           # bars that must form the pre-breakout range
+  breakout_window: 5       # the break must have happened within these bars
+  band_atr: 6.0            # range height cap, in ATR
+  breakout_vol_mult: 1.5   # breakout bar volume vs 20-bar average
+  retest_atr: 0.5          # retest proximity to the broken level
+  min_score: 6

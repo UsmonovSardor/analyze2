@@ -46,7 +46,8 @@ CREATE INDEX IF NOT EXISTS idx_signals_created ON signals(created_at);
 """
 
 # idempotent column adds for DBs created before a column existed
-_MIGRATIONS = [("features", "TEXT"), ("timeframe", "TEXT NOT NULL DEFAULT 'H1'")]
+_MIGRATIONS = [("features", "TEXT"), ("timeframe", "TEXT NOT NULL DEFAULT 'H1'"),
+               ("strategy_name", "TEXT NOT NULL DEFAULT 'SMC (generic)'")]
 
 
 class TradeRow(BaseModel):
@@ -65,6 +66,7 @@ class TradeRow(BaseModel):
     result_r: float | None = None
     created_at: int | None = None
     closed_at: int | None = None
+    strategy_name: str = "SMC (generic)"
 
 
 class Journal:
@@ -89,11 +91,11 @@ class Journal:
         with self._conn() as c:
             cur = c.execute(
                 "INSERT INTO signals(created_at,symbol,timeframe,direction,entry,stop_loss,"
-                "tp1,tp2,tp3,rr,confidence,confluence,reasons) "
-                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "tp1,tp2,tp3,rr,confidence,confluence,reasons,strategy_name) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (int(time.time()), sig.symbol, timeframe, sig.direction, sig.entry,
                  sig.stop_loss, sig.tp1, sig.tp2, sig.tp3, sig.rr, sig.confidence,
-                 sig.confluence_score, json.dumps(sig.reasons)))
+                 sig.confluence_score, json.dumps(sig.reasons), sig.strategy_name))
             return int(cur.lastrowid)
 
     def record_features(self, signal_id: int, features: dict) -> None:
@@ -154,7 +156,8 @@ class Journal:
             stop_loss=r["stop_loss"], tp1=r["tp1"], tp2=r["tp2"], tp3=r["tp3"],
             rr=r["rr"] or 0.0, confidence=r["confidence"] or 0,
             confluence_score=r["confluence"] or 0,
-            reasons=json.loads(r["reasons"]) if r["reasons"] else [])
+            reasons=json.loads(r["reasons"]) if r["reasons"] else [],
+            strategy_name=r["strategy_name"] or "SMC (generic)")
 
     def open_trades(self) -> list[TradeRow]:
         """Every unresolved signal — tracked for its forward outcome whether or not
@@ -220,4 +223,5 @@ class Journal:
             direction=r["direction"], entry=r["entry"], stop_loss=r["stop_loss"],
             tp1=r["tp1"], tp2=r["tp2"], tp3=r["tp3"], status=r["status"],
             ticket=r["ticket"], volume=r["volume"], result_r=r["result_r"],
-            created_at=r["created_at"], closed_at=r["closed_at"])
+            created_at=r["created_at"], closed_at=r["closed_at"],
+            strategy_name=r["strategy_name"] or "SMC (generic)")

@@ -24,6 +24,7 @@ from ..ict import ICTResult
 from ..liquidity import LiquidityResult
 from ..market_structure import StructureResult
 from ..order_block import OrderBlockResult
+from ..strategies import DetectorContext, classify_regime, detect_all
 
 log = get_logger("engines.rule_engine")
 
@@ -42,6 +43,8 @@ class Signal(BaseModel):
     confidence: int
     confluence_score: int
     reasons: list[str]
+    strategy_name: str = "SMC (generic)"   # named catalog strategy, if one matched
+    setup: str = ""                        # short code (A/B/…)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -76,6 +79,13 @@ class RuleEngine:
         bear = structure.trend.bearish
         direction: Direction = "BUY" if bull else "SELL" if bear else "NO TRADE"
 
+        # ── Market regime gate (strategy.md §Market Regime) ───────────────
+        # High-Volatility Chop rejects EVERYTHING — huge wicks and an ATR spike
+        # mean no tradeable structure regardless of what the engines scored.
+        regime = classify_regime(df)
+        if regime == "chop":
+            rejected.append("high-volatility chop regime (ATR spike)")
+
         # ── Mandatory conditions (doc 15 §6) ──────────────────────────────
         if direction == "NO TRADE":
             rejected.append("no directional structure (sideways)")
@@ -108,6 +118,22 @@ class RuleEngine:
                                       order_block, fvg, ict, ob_aligned, fvg_aligned,
                                       vol_factor=self._vol_factor(df))
 
+        # ── Named strategy detectors (catalog port) ────────────────────────
+        # A matching catalog setup ADDS confluence (its 0–10 scorecard) and tags
+        # the signal; no match keeps today's generic-SMC behaviour unchanged.
+        match = None
+        if direction != "NO TRADE" and not rejected:
+            ctx = DetectorContext(symbol=symbol, df=df, structure=structure,
+                                  liquidity=liquidity, order_block=order_block,
+                                  fvg=fvg, ict=ict, htf_bullish=htf_bullish,
+                                  regime=regime)
+            matches = [m for m in detect_all(ctx) if m.direction == direction]
+            if matches:
+                match = matches[0]
+                confluence = min(100, confluence + match.score)
+                log.info("StrategyMatched", symbol=symbol, strategy=match.name,
+                         score=match.score)
+
         if rejected or confluence < self.min_confluence:
             if confluence < self.min_confluence and not rejected:
                 rejected.append(f"confluence {confluence} < {self.min_confluence}")
@@ -130,6 +156,13 @@ class RuleEngine:
                                 confluence_score=confluence, confidence=0,
                                 rejected=rejected)
 
+        if match is not None:
+            signal.strategy_name = match.name
+            signal.setup = match.code
+            # the detector's valued notes enrich the analysis block
+            reasons.append(f"{match.name} setup tasdiqlandi "
+                           f"(scorecard {match.score}/10)")
+            reasons += [f"  – {note}" for note in match.reasons[:3]]
         signal.reasons = reasons
         bus.publish("SignalGenerated", symbol=symbol, direction=direction,
                     confidence=signal.confidence)
