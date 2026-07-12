@@ -47,7 +47,8 @@ CREATE INDEX IF NOT EXISTS idx_signals_created ON signals(created_at);
 
 # idempotent column adds for DBs created before a column existed
 _MIGRATIONS = [("features", "TEXT"), ("timeframe", "TEXT NOT NULL DEFAULT 'H1'"),
-               ("strategy_name", "TEXT NOT NULL DEFAULT 'SMC (generic)'")]
+               ("strategy_name", "TEXT NOT NULL DEFAULT 'SMC (generic)'"),
+               ("pred_p", "REAL")]     # ML shadow: predicted P(win) at signal time
 
 
 class TradeRow(BaseModel):
@@ -103,16 +104,37 @@ class Journal:
             c.execute("UPDATE signals SET features=? WHERE id=?",
                       (json.dumps(features), signal_id))
 
+    def record_prediction(self, signal_id: int, pred_p: float) -> None:
+        """ML shadow mode: store the model's P(win) at signal time so live
+        calibration (predicted vs realized) is measurable before gating."""
+        with self._conn() as c:
+            c.execute("UPDATE signals SET pred_p=? WHERE id=?",
+                      (round(float(pred_p), 4), signal_id))
+
     def features_dataset(self) -> list[tuple[dict, str, float]]:
         """(features, status, result_r) for every CLOSED signal that has features —
         the labelled training set for the AI/Probability engines (docs 16-17).
         Keyed on closed_at so partially scaled-out (tp1/tp2) trades, which carry a
-        running result_r but are not yet resolved, are excluded until they close."""
+        running result_r but are not yet resolved, are excluded until they close.
+        Ordered by created_at: walk-forward training must respect time."""
         with self._conn() as c:
             rows = c.execute(
                 "SELECT features, status, result_r FROM signals "
-                "WHERE features IS NOT NULL AND closed_at IS NOT NULL").fetchall()
+                "WHERE features IS NOT NULL AND closed_at IS NOT NULL "
+                "ORDER BY created_at").fetchall()
         return [(json.loads(r["features"]), r["status"], r["result_r"]) for r in rows]
+
+    def closed_rows(self, days: int | None = None) -> list[dict]:
+        """Closed trades for the expectancy stats engine (blacklion/ai/stats.py):
+        strategy/symbol/TF buckets with status, realized R and shadow pred_p."""
+        q = ("SELECT strategy_name, symbol, timeframe, status, result_r, pred_p "
+             "FROM signals WHERE closed_at IS NOT NULL AND result_r IS NOT NULL")
+        args: tuple = ()
+        if days is not None:
+            q += " AND closed_at > ?"
+            args = (int(time.time()) - days * 86400,)
+        with self._conn() as c:
+            return [dict(r) for r in c.execute(q, args).fetchall()]
 
     def record_execution(self, signal_id: int, ticket: str, volume: float,
                          fill_price: float) -> None:

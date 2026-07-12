@@ -57,7 +57,13 @@ class Notifier:
             {"text": "🚀 Avto-savdo (demo)", "callback_data": f"trade:{sig_id}"}]]}
 
     def send_daily_digest(self, journal: Journal) -> None:
-        self.client.send(fmt.daily_digest(journal.stats(7), journal.signals_today()))
+        text = fmt.daily_digest(journal.stats(7), journal.signals_today())
+        try:                                    # per-strategy expectancy block
+            from ..ai import stats_report
+            text += "\n\n" + stats_report(journal.closed_rows(days=30))
+        except Exception:
+            pass                                # digest must never fail on stats
+        self.client.send(text)
 
     # ── command poller (allowlisted) ──────────────────────────────────────
     def _allowed(self, chat_id) -> bool:

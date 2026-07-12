@@ -55,3 +55,13 @@ probability:
   minimum_probability: 85
   minimum_expected_value: 0.5
   historical_neighbors: 100
+
+# ML learning layer (docs 16-17). The model trains itself every ~25 new closed
+# trades once 200 labelled samples exist; artifacts live in /data/models.
+# mode: shadow = predictions are journaled (pred_p) but change NOTHING;
+#       gate   = additionally require calibrated P(win) ≥ gate_min_p to publish.
+# Flip to gate ONLY after the shadow Brier beats the base-rate baseline live.
+ai:
+  mode: shadow
+  gate_min_p: 0.55
+  throttle_min_n: 30     # closed trades before a losing strategy is throttled

@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import time
 
+from .ai import model as ai_model
+from .ai import stats as ai_stats
 from .core import config
 from .core.logging import get_logger
 from .data.sources import MarketDataSource
@@ -76,6 +78,10 @@ class Runtime:
                                     .get("minimum_publish_confidence", 80))
         # smart trade management knobs (risk.yaml) — early exits + runner trail
         self.mgmt: dict = config.load("risk").get("trade_management", {})
+        # ML layer (docs 16-17): shadow predictions now, gate mode by config
+        self.ai_cfg: dict = config.load("engines").get("ai", {})
+        self.prob_model = ai_model.ProbabilityModel()
+        self._throttle: set[str] = set()
         self.notifier.trade_executor = self.execute_signal   # Telegram button hook
 
     @staticmethod
@@ -96,6 +102,7 @@ class Runtime:
         """Returns the signal ids generated this pass (recorded, maybe executed)."""
         produced: list[int] = []
         errors = fetched = 0
+        self._refresh_throttle()                     # evidence-based strategy blocks
         for symbol in self.symbols:
             for entry_tf, context_tf in self.scan_tfs:
                 try:
@@ -109,7 +116,19 @@ class Runtime:
         # feed is healthy if at least one symbol/TF returned data this pass
         self.monitor.record_scan(signals=len(produced), errors=errors,
                                  feed_ok=fetched > 0)
+        ai_model.maybe_retrain(self.journal)         # learn from every closed trade
         return produced
+
+    def _refresh_throttle(self) -> None:
+        """Evidence-based auto-throttle (ai/stats.py): strategies with proven
+        negative expectancy are publish-blocked until they recover."""
+        try:
+            self._throttle = ai_stats.throttled_strategies(
+                self.journal.closed_rows(),
+                min_n=int(self.ai_cfg.get("throttle_min_n", 30)))
+        except Exception as exc:
+            log.warning("ThrottleRefreshFailed", error=str(exc))
+            self._throttle = set()
 
     def health(self) -> HealthReport:
         return self.monitor.snapshot(
@@ -131,10 +150,18 @@ class Runtime:
         sig = decision.signal
         sid = self.journal.record_signal(sig, timeframe=entry_tf)   # record EVERY signal
         # snapshot the feature vector at signal time → labelled training data (doc 09)
+        pred_p: float | None = None
         try:
             feats = self.features.extract(symbol, df, direction=sig.direction,
                                           **self.pipeline.last)
             self.journal.record_features(sid, feats)
+            # ML shadow: journal the calibrated P(win) so live calibration is
+            # measurable BEFORE the model is allowed to gate anything.
+            pred_p = self.prob_model.predict(feats)
+            if pred_p is not None:
+                self.journal.record_prediction(sid, pred_p)
+                log.info("SignalPrediction", id=sid, symbol=symbol,
+                         pred_p=round(pred_p, 3))
         except Exception as exc:
             log.error("FeatureError", symbol=symbol, error=str(exc))
         # Publish tier — sub-threshold signals are recorded (labelled ML data,
@@ -143,6 +170,19 @@ class Runtime:
         if sig.confidence < self.min_publish:
             log.info("SignalShadowed", id=sid, symbol=symbol, tf=entry_tf,
                      confidence=sig.confidence, min_publish=self.min_publish)
+            return sid
+        # Evidence throttle: a strategy with proven negative expectancy (n≥30)
+        # keeps journaling (it can earn its way back) but is not published.
+        if sig.strategy_name in self._throttle:
+            log.info("SignalThrottled", id=sid, symbol=symbol,
+                     strategy=sig.strategy_name)
+            return sid
+        # ML gate (engines.yaml ai.mode: "gate" — flipped only after shadow
+        # calibration proves out): require calibrated P(win) ≥ the floor.
+        if (self.ai_cfg.get("mode") == "gate" and pred_p is not None
+                and pred_p < float(self.ai_cfg.get("gate_min_p", 0.55))):
+            log.info("SignalGatedByModel", id=sid, symbol=symbol,
+                     pred_p=round(pred_p, 3))
             return sid
 
         self.notifier.on_signal(sig, sid, df=df, timeframe=entry_tf,
