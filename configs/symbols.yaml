@@ -3,22 +3,26 @@
 # indices are trade_mode=0 (quotes only, orders rejected) — so the watchlist is
 # forex majors/crosses + metals, every one order-tradeable on the demo. Do NOT
 # re-add indices here: they can't fill (button → lot_size 0 / market closed).
+# contract = units per 1.0 lot (position sizing). FX standard lot = 100 000;
+# metals differ (XAUUSD 100 oz, XAGUSD 5 000 oz on MetaQuotes-Demo). A wrong
+# contract silently sizes the lot to 0.00 and every button-order gets vetoed
+# with "risk not approved" — the live broker value overrides this at runtime.
 symbols:
   # ── Forex majors + crosses ────────────────────────────────────────────
-  EURUSD: {market: forex,     digits: 5, max_spread_points: 15}
-  GBPUSD: {market: forex,     digits: 5, max_spread_points: 20}
-  USDJPY: {market: forex,     digits: 3, max_spread_points: 15}
-  AUDUSD: {market: forex,     digits: 5, max_spread_points: 15}
-  NZDUSD: {market: forex,     digits: 5, max_spread_points: 18}
-  USDCAD: {market: forex,     digits: 5, max_spread_points: 18}
-  USDCHF: {market: forex,     digits: 5, max_spread_points: 18}
-  EURJPY: {market: forex,     digits: 3, max_spread_points: 18}
-  GBPJPY: {market: forex,     digits: 3, max_spread_points: 22}
-  EURGBP: {market: forex,     digits: 5, max_spread_points: 18}
-  AUDJPY: {market: forex,     digits: 3, max_spread_points: 20}
+  EURUSD: {market: forex,     digits: 5, max_spread_points: 15, contract: 100000}
+  GBPUSD: {market: forex,     digits: 5, max_spread_points: 20, contract: 100000}
+  USDJPY: {market: forex,     digits: 3, max_spread_points: 15, contract: 100000}
+  AUDUSD: {market: forex,     digits: 5, max_spread_points: 15, contract: 100000}
+  NZDUSD: {market: forex,     digits: 5, max_spread_points: 18, contract: 100000}
+  USDCAD: {market: forex,     digits: 5, max_spread_points: 18, contract: 100000}
+  USDCHF: {market: forex,     digits: 5, max_spread_points: 18, contract: 100000}
+  EURJPY: {market: forex,     digits: 3, max_spread_points: 18, contract: 100000}
+  GBPJPY: {market: forex,     digits: 3, max_spread_points: 22, contract: 100000}
+  EURGBP: {market: forex,     digits: 5, max_spread_points: 18, contract: 100000}
+  AUDJPY: {market: forex,     digits: 3, max_spread_points: 20, contract: 100000}
   # ── Metals ────────────────────────────────────────────────────────────
-  XAUUSD: {market: commodity, digits: 2, max_spread_points: 35}
-  XAGUSD: {market: commodity, digits: 3, max_spread_points: 40}
+  XAUUSD: {market: commodity, digits: 2, max_spread_points: 35, contract: 100}
+  XAGUSD: {market: commodity, digits: 3, max_spread_points: 40, contract: 5000}
 
 # Broker symbol → internal symbol (doc 08 §6)
 aliases:

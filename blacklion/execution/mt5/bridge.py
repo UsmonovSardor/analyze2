@@ -37,6 +37,7 @@ class MT5Broker:
         self._password = os.getenv("MT5_PASSWORD", "")
         self._server = os.getenv("MT5_SERVER", "")
         self._mt5 = None            # the MetaTrader5 module (native or mt5linux proxy)
+        self._contracts: dict[str, float] = {}   # symbol → trade_contract_size cache
 
     # ── connection ────────────────────────────────────────────────────────
     def connect(self) -> bool:
@@ -77,6 +78,16 @@ class MT5Broker:
     def spread_points(self, symbol: str) -> float:     # pragma: no cover
         info = self._mt5.symbol_info(symbol)
         return float(info.spread) if info else 0.0
+
+    def contract_size(self, symbol: str) -> float:     # pragma: no cover
+        """Live units-per-lot (XAUUSD=100, FX=100000). Cached — it never changes
+        within a session and each probe is an rpyc round-trip. 0.0 ⇒ unknown,
+        caller falls back to configs/symbols.yaml."""
+        if symbol not in self._contracts:
+            info = self._mt5.symbol_info(symbol)
+            self._contracts[symbol] = float(
+                getattr(info, "trade_contract_size", 0.0) or 0.0)
+        return self._contracts[symbol]
 
     # ── orders ────────────────────────────────────────────────────────────
     def _filling_mode(self, symbol: str):              # pragma: no cover

@@ -47,6 +47,11 @@ class PaperBroker:
     def spread_points(self, symbol: str) -> float:
         return self._spreads.get(symbol, 0.0)
 
+    def contract_size(self, symbol: str) -> float:
+        # deterministic FX-standard contract; per-symbol truth comes from config
+        # (runtime overlays it) or the live broker adapter in production
+        return 100000.0
+
     def place_order(self, req: OrderRequest) -> OrderResult:
         if not self._connected:
             return OrderResult(ok=False, error="not connected")

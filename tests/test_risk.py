@@ -63,6 +63,31 @@ def test_correlation_filter_blocks_same_direction_peer():
     assert not d.approved and any("correlated" in r for r in d.reasons)
 
 
+def test_metal_contract_sizes_real_lot_not_zero():
+    """The live bug: XAUUSD sized with the FX contract (100000) computed
+    0.0002 → 0.00 lots and every gold button-tap was vetoed with a bare
+    "risk not approved". With the metal contract (100/lot) the same trade
+    sizes to a tradeable 0.20 lots."""
+    gold = sig(symbol="XAUUSD", direction="SELL",
+               entry=4108.63, sl=4158.24, tp2=4009.41)
+    account = flat_account(balance=100000,
+                           contract_sizes={"XAUUSD": 100.0})
+    d = ENGINE.evaluate(gold, account)
+    assert d.approved
+    # risk 1% of 100k = $1000; stop 49.61 × 100/lot = $4961/lot → 0.20 lots
+    assert d.lot_size == 0.2
+
+
+def test_unsizeable_lot_vetoed_with_explicit_reason():
+    """Same gold trade sized with the WRONG (FX) contract must not silently
+    approve a 0.0 lot — it must veto with a reason naming lot/stop/contract."""
+    gold = sig(symbol="XAUUSD", direction="SELL",
+               entry=4108.63, sl=4158.24, tp2=4009.41)
+    d = ENGINE.evaluate(gold, flat_account(balance=100000))   # FX contract fallback
+    assert not d.approved
+    assert any("lot" in r and "min" in r for r in d.reasons)
+
+
 def test_correlation_allows_opposite_direction():
     positions = [OpenPosition(symbol="GBPUSD", direction="SELL", risk_pct=0.5)]
     d = ENGINE.evaluate(sig(symbol="EURUSD", direction="BUY"),

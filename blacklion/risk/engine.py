@@ -20,6 +20,10 @@ from ..engines.rule_engine import Signal
 
 log = get_logger("risk")
 
+# Smallest lot MT5 accepts. A computed size below this is untradeable and must be
+# vetoed with an explicit reason, not silently truncated to 0.0.
+MIN_LOT = 0.01
+
 
 class OpenPosition(BaseModel):
     symbol: str
@@ -33,7 +37,10 @@ class AccountState(BaseModel):
     open_positions: list[OpenPosition] = []
     realized_pnl_today_pct: float = 0.0     # negative = loss, as % of balance
     realized_pnl_week_pct: float = 0.0
-    contract_size: float = 1.0              # units per 1.0 lot (100000 for FX)
+    contract_size: float = 1.0              # fallback units per 1.0 lot (100000 for FX)
+    # per-symbol units per lot (XAUUSD=100, XAGUSD=5000, FX=100000). Sizing with
+    # the FX contract on a metal computes a 0.00 lot and vetoes every trade.
+    contract_sizes: dict[str, float] = {}
 
 
 class RiskDecision(BaseModel):
@@ -97,11 +104,20 @@ class RiskEngine:
         if rr < self.min_rr:
             reasons.append(f"RR {rr:.2f} below minimum {self.min_rr}")
 
+        # ── Position size + min-lot floor (doc 18 §6) ─────────────────────
+        # An unsizeable trade must carry an EXPLICIT reason — a silent lot 0.0
+        # used to surface downstream as a bare "risk not approved".
+        lot = self._position_size(signal, account, r) if r > 0 else 0.0
+        if not reasons and lot < MIN_LOT:
+            contract = self._contract_for(signal.symbol, account)
+            reasons.append(
+                f"lot {lot:.4f} < min {MIN_LOT} — stop juda keng "
+                f"(stop {r:g}, contract {contract:g}, balans {account.balance:g})")
+
         if reasons:
             bus.publish("TradeRejected", symbol=signal.symbol, reasons=reasons)
             return RiskDecision(approved=False, reasons=reasons, rr=round(rr, 2))
 
-        lot = self._position_size(signal, account, r)
         grade = self._risk_grade(current_heat + self.risk_pct)
         bus.publish("TradeApproved", symbol=signal.symbol, lot=lot)
         return RiskDecision(approved=True, lot_size=lot, risk_pct=self.risk_pct,
@@ -115,10 +131,16 @@ class RiskEngine:
         return any(p.symbol in peers and p.direction == signal.direction
                    for p in account.open_positions)
 
+    @staticmethod
+    def _contract_for(symbol: str, account: AccountState) -> float:
+        """Units per 1.0 lot for THIS symbol — per-symbol map first (broker/config
+        truth), then the account-wide fallback."""
+        return account.contract_sizes.get(symbol) or account.contract_size
+
     def _position_size(self, signal: Signal, account: AccountState, stop_dist: float) -> float:
         """Lot size so a full stop-out loses ~risk_pct of balance (doc 18 §6)."""
         risk_money = account.balance * self.risk_pct / 100
-        loss_per_lot = stop_dist * account.contract_size
+        loss_per_lot = stop_dist * self._contract_for(signal.symbol, account)
         if loss_per_lot <= 0:
             return 0.0
         return round(risk_money / loss_per_lot, 2)

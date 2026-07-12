@@ -62,8 +62,13 @@ class ExecutionEngine:
     def execute(self, signal: Signal, risk: RiskDecision,
                 take_profit: float | None = None) -> ExecutionResult:
         # Execution requires prior approval from Rule + Risk (doc 19 §1).
+        # Relay the SPECIFIC veto — a bare "risk not approved" once hid a
+        # contract-size bug that zeroed every metal lot.
         if not risk.approved or risk.lot_size <= 0:
-            return ExecutionResult(status="REJECTED", reason="risk not approved")
+            why = "; ".join(risk.reasons) if risk.reasons else (
+                f"lot size {risk.lot_size:g} — sized to zero" if risk.approved
+                else "risk not approved")
+            return ExecutionResult(status="REJECTED", reason=why)
 
         # ── Pre-execution validation (doc 19 §7) ──────────────────────────
         ok, why = self._pre_validate(signal)

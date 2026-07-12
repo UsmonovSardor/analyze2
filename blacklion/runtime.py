@@ -47,7 +47,14 @@ class Runtime:
         self.structure = MarketStructureEngine()
         self.risk = RiskEngine()
         self.execution = ExecutionEngine(broker)
-        self.symbols: list[str] = list(config.load("symbols")["symbols"])
+        symbol_cfg = config.load("symbols")["symbols"]
+        self.symbols: list[str] = list(symbol_cfg)
+        # units per 1.0 lot per symbol (XAUUSD=100 vs FX=100000) — sizing with the
+        # wrong contract rounds the lot to 0.00 and vetoes every metal trade. The
+        # live broker value (symbol_info.trade_contract_size) overrides config.
+        self._contracts: dict[str, float] = {
+            sym: float(cfg.get("contract", 100000.0))
+            for sym, cfg in symbol_cfg.items()}
         # Multi-timeframe scan: each (entry, context) pair is scanned per symbol,
         # so M15 setups (frequent) accumulate history far faster than H1 alone.
         self.scan_tfs: list[tuple[str, str]] = self._parse_tfs(
@@ -128,7 +135,7 @@ class Runtime:
         if not self.auto_execute:
             return sid
 
-        account = self._account_state()
+        account = self._account_state(symbol)
         risk = self.risk.evaluate(sig, account)
         if not risk.approved:
             log.info("RiskRejected", symbol=symbol, reasons=risk.reasons)
@@ -156,8 +163,9 @@ class Runtime:
         if row.status != "open":
             return f"⚠️ #{sid} endi ochiq emas (holat: {row.status})."
         sig = self.journal.get_signal(sid)
-        risk = self.risk.evaluate(sig, self._account_state())
+        risk = self.risk.evaluate(sig, self._account_state(row.symbol))
         if not risk.approved:
+            log.info("RiskVeto", id=sid, symbol=row.symbol, reasons=risk.reasons)
             return f"⛔️ #{sid} risk rad etdi: {', '.join(risk.reasons) or 'limit'}"
         result = self.execution.execute(sig, risk, take_profit=sig.tp3)
         if result.status != "EXECUTED":
@@ -265,7 +273,7 @@ class Runtime:
         except Exception as exc:
             log.warning("BrokerOpFailed", error=str(exc))
 
-    def _account_state(self) -> AccountState:
+    def _account_state(self, symbol: str | None = None) -> AccountState:
         """The risk engine's view of the account.
 
         Two very different books, one per mode:
@@ -280,8 +288,22 @@ class Runtime:
             every live trade — the bug that blocked the first button press.
         """
         if self._trade_mode():
-            return self._live_account_state()
+            return self._live_account_state(symbol)
         return self._shadow_account_state()
+
+    def _contract_map(self, symbol: str | None) -> dict[str, float]:
+        """Per-symbol units-per-lot for the risk engine. Config is the base; in
+        trade mode the LIVE broker value for the signal's symbol wins (cached in
+        the adapter — one rpyc call per symbol per session)."""
+        contracts = dict(self._contracts)
+        if symbol and self._trade_mode():
+            try:
+                live = float(self.broker.contract_size(symbol) or 0.0)
+                if live > 0:
+                    contracts[symbol] = live
+            except Exception as exc:
+                log.warning("ContractSizeFailed", symbol=symbol, error=str(exc))
+        return contracts
 
     def _trade_mode(self) -> bool:
         """True when a real order can actually be placed — the scanner auto-trades
@@ -298,9 +320,9 @@ class Runtime:
             open_positions=positions,
             realized_pnl_today_pct=self.journal.realized_r(86400) * self.risk.risk_pct,
             realized_pnl_week_pct=self.journal.realized_r(7 * 86400) * self.risk.risk_pct,
-            contract_size=100000.0)
+            contract_size=100000.0, contract_sizes=dict(self._contracts))
 
-    def _live_account_state(self) -> AccountState:
+    def _live_account_state(self, symbol: str | None = None) -> AccountState:
         # Each real position counts as one standard risk unit against the heat /
         # exposure / open-trade caps — exactly how a new trade is sized, so N open
         # positions = N × risk_pct of heat.
@@ -316,7 +338,7 @@ class Runtime:
                 86400, executed_only=True) * self.risk.risk_pct,
             realized_pnl_week_pct=self.journal.realized_r(
                 7 * 86400, executed_only=True) * self.risk.risk_pct,
-            contract_size=100000.0)
+            contract_size=100000.0, contract_sizes=self._contract_map(symbol))
 
     def _broker_positions(self) -> list:
         try:
