@@ -80,7 +80,7 @@ class RuleEngine:
                  structure: StructureResult, liquidity: LiquidityResult,
                  order_block: OrderBlockResult, fvg: FVGResult, ict: ICTResult,
                  htf_bullish: bool | None = None, mtf=None,
-                 volume=None) -> RuleDecision:
+                 volume=None, manipulation=None) -> RuleDecision:
         reasons: list[str] = []
         rejected: list[str] = []
 
@@ -94,6 +94,14 @@ class RuleEngine:
         regime = classify_regime(df)
         if regime == "chop":
             rejected.append("high-volatility chop regime (ATR spike)")
+
+        # ── Trap / fake-breakout gate (TITAN Bible 8.11/8.14) ─────────────
+        # A fresh failed breakout traps retail on that side — never join the
+        # trapped direction (that IS the retail mistake the bible warns about).
+        if (manipulation is not None and manipulation.trapped_direction
+                and manipulation.trapped_direction == direction):
+            trap = "bull-trap" if manipulation.bull_trap else "bear-trap"
+            rejected.append(f"{trap}: soxta breakout ({direction} tomonini tuzoqqa oldi)")
 
         # ── MTF conflict engine (TITAN Bible 6.9/6.11) ────────────────────
         # A higher timeframe pointing the OTHER way vetoes the trade — no signal
@@ -165,7 +173,8 @@ class RuleEngine:
                                 ob, fvg, ict)
         confidence = self._confidence(confluence, structure, liquidity,
                                       ob_aligned, fvg_aligned, ict,
-                                      htf_bullish, direction, mtf, volume)
+                                      htf_bullish, direction, mtf, volume,
+                                      manipulation)
         signal = self._build_signal(symbol, df, direction, structure, ob, fvg,
                                     confluence, confidence)
         if signal is None:
@@ -205,6 +214,16 @@ class RuleEngine:
             if volume.exhaustion:
                 note += " · exhaustion"
             reasons.append(note)
+        if manipulation is not None and (manipulation.inducement
+                                         or manipulation.trapped_direction):
+            bits = []
+            if manipulation.inducement:
+                bits.append("inducement (likvidlik grab)")
+            if manipulation.trapped_direction and \
+                    manipulation.trapped_direction != direction:
+                bits.append(f"{manipulation.trapped_direction} tuzoq → reversal tasdiq")
+            if bits:
+                reasons.append("Manipulyatsiya: " + " · ".join(bits))
         signal.reasons = reasons
         bus.publish("SignalGenerated", symbol=symbol, direction=direction,
                     confidence=signal.confidence)
@@ -260,7 +279,7 @@ class RuleEngine:
     def _confidence(self, confluence: int, structure: StructureResult,
                     liquidity, ob_aligned: bool, fvg_aligned: bool, ict,
                     htf_bullish: bool | None, direction, mtf=None,
-                    volume=None) -> int:
+                    volume=None, manipulation=None) -> int:
         """Confidence spreads the quality scale instead of clustering at 60–70
         (doc 15 §11 recalibrated): a base from confluence + structure strength,
         plus explicit bonuses for the independent confirmations that actually
@@ -290,6 +309,13 @@ class RuleEngine:
                 extras += 4                             # displacement confirms
             if volume.exhaustion and not agree:
                 extras -= 4                             # exhaustion against us
+        if manipulation is not None:                    # institutional footprint (Bible 8)
+            if manipulation.inducement:
+                extras += 5                             # liquidity grabbed before the move
+            # a trap pointing the OTHER way confirms our reversal
+            if (manipulation.trapped_direction
+                    and manipulation.trapped_direction != direction):
+                extras += 4
         return max(0, min(100, round(base + extras)))
 
     # Uzbek display names (professional caption; technical terms stay latin)
