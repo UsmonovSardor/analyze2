@@ -33,7 +33,8 @@ def _safe(x: float, default: float = 0.0) -> float:
 
 class FeatureEngineer:
     def extract(self, symbol: str, df: pd.DataFrame, *, structure, liquidity,
-                order_block, fvg, ict, direction: str, ts=None) -> dict[str, float]:
+                order_block, fvg, ict, direction: str, ts=None,
+                volume=None, **_) -> dict[str, float]:
         f: dict[str, float] = {}
         f.update(self._price(df))
         f.update(self._trend(df, structure))
@@ -44,6 +45,7 @@ class FeatureEngineer:
         f.update(self._liquidity(df, liquidity))
         f.update(self._zone(df, order_block, fvg, direction))
         f.update(self._ict(ict))
+        f.update(self._volume_profile(df, volume))
         f.update(self._statistical(df))
         f.update(self._time(ts))
         f["direction_long"] = 1.0 if direction == "BUY" else 0.0
@@ -179,6 +181,24 @@ class FeatureEngineer:
             "judas_swing": 1.0 if ict.judas_swing else 0.0,
             "amd_phase": _AMD_CODE.get(ict.amd_phase, 0),
             "smt_divergence": 1.0 if ict.smt_divergence else 0.0,
+        }
+
+    def _volume_profile(self, df: pd.DataFrame, vp) -> dict:
+        """Volume-profile features (TITAN Bible ch.7) → ML dataset. NaN-safe /
+        normalized to ATR units so scale is stable across symbols."""
+        if vp is None:
+            return {"vwap_dist_atr": 0.0, "vp_in_value_area": 0.0,
+                    "vp_spike_ratio": 0.0, "vp_absorption": 0.0,
+                    "vp_exhaustion": 0.0, "vp_score": 0.0}
+        atr = self._atr(df) or 1e-9
+        c = float(df["close"].iloc[-1])
+        return {
+            "vwap_dist_atr": (c - vp.vwap) / atr if vp.vwap else 0.0,
+            "vp_in_value_area": 1.0 if vp.in_value_area else 0.0,
+            "vp_spike_ratio": float(vp.spike_ratio),
+            "vp_absorption": 1.0 if vp.absorption else 0.0,
+            "vp_exhaustion": 1.0 if vp.exhaustion else 0.0,
+            "vp_score": float(vp.vp_score),
         }
 
     def _statistical(self, df: pd.DataFrame) -> dict:

@@ -79,7 +79,8 @@ class RuleEngine:
     def evaluate(self, symbol: str, df: pd.DataFrame,
                  structure: StructureResult, liquidity: LiquidityResult,
                  order_block: OrderBlockResult, fvg: FVGResult, ict: ICTResult,
-                 htf_bullish: bool | None = None, mtf=None) -> RuleDecision:
+                 htf_bullish: bool | None = None, mtf=None,
+                 volume=None) -> RuleDecision:
         reasons: list[str] = []
         rejected: list[str] = []
 
@@ -164,7 +165,7 @@ class RuleEngine:
                                 ob, fvg, ict)
         confidence = self._confidence(confluence, structure, liquidity,
                                       ob_aligned, fvg_aligned, ict,
-                                      htf_bullish, direction, mtf)
+                                      htf_bullish, direction, mtf, volume)
         signal = self._build_signal(symbol, df, direction, structure, ob, fvg,
                                     confluence, confidence)
         if signal is None:
@@ -193,6 +194,17 @@ class RuleEngine:
             reasons.append(
                 f"MTF: {aligned}/{mtf.total} yuqori TF mos ("
                 + ", ".join(f"{tf} {t}" for tf, t in mtf.trends.items()) + ")")
+        if volume is not None and volume.vwap:
+            vw = {"above": "ustida", "below": "ostida", "at": "yonida"}
+            note = (f"Volume: narx VWAP {vw.get(volume.price_vs_vwap)} "
+                    f"{volume.vwap:g} · POC {volume.poc:g}")
+            if volume.volume_spike:
+                note += f" · hajm portlashi {volume.spike_ratio:g}×"
+            if volume.absorption:
+                note += " · absorption"
+            if volume.exhaustion:
+                note += " · exhaustion"
+            reasons.append(note)
         signal.reasons = reasons
         bus.publish("SignalGenerated", symbol=symbol, direction=direction,
                     confidence=signal.confidence)
@@ -247,7 +259,8 @@ class RuleEngine:
 
     def _confidence(self, confluence: int, structure: StructureResult,
                     liquidity, ob_aligned: bool, fvg_aligned: bool, ict,
-                    htf_bullish: bool | None, direction, mtf=None) -> int:
+                    htf_bullish: bool | None, direction, mtf=None,
+                    volume=None) -> int:
         """Confidence spreads the quality scale instead of clustering at 60–70
         (doc 15 §11 recalibrated): a base from confluence + structure strength,
         plus explicit bonuses for the independent confirmations that actually
@@ -269,6 +282,14 @@ class RuleEngine:
             extras += 5              # higher-timeframe agreement
         if mtf is not None and mtf.total:
             extras += round(8 * mtf.score(direction))   # full cascade alignment
+        if volume is not None:                          # institutional volume (Bible 7)
+            agree = (volume.bias == "bullish") == (direction == "BUY")
+            if volume.bias != "neutral" and agree:
+                extras += 6                             # price on our side of VWAP
+            if volume.volume_spike and agree:
+                extras += 4                             # displacement confirms
+            if volume.exhaustion and not agree:
+                extras -= 4                             # exhaustion against us
         return max(0, min(100, round(base + extras)))
 
     # Uzbek display names (professional caption; technical terms stay latin)
