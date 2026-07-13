@@ -40,6 +40,19 @@ def _bar(score: int) -> str:
     return "▰" * score + "▱" * (10 - score)
 
 
+# TITAN Bible 14.9 — confidence tiers by name
+def confidence_tier(conf: int) -> str:
+    if conf >= 95:
+        return "ELITE"
+    if conf >= 85:
+        return "PRO"
+    if conf >= 70:
+        return "GOOD"
+    if conf >= 50:
+        return "WATCH"
+    return "NO TRADE"
+
+
 # 7-factor scorecard display names (order fixed for a stable caption line)
 _SCORECARD_UZ = [("trend", "Trend", 2), ("level", "Zona", 2), ("volume", "Hajm", 2),
                  ("rsi", "RSI", 1), ("macro", "HTF", 1), ("room", "Joy", 1),
@@ -66,8 +79,8 @@ def signal_message(sig: Signal, sig_id: int, market_ctx: str = "") -> str:
     lines = [
         f"{arrow} <b>{sig.direction}</b> · <b>{esc(sig.symbol)}</b> · #{sig_id}",
         f"📌 <b>{esc(sig.strategy_name)}</b>",
-        f"📊 Ishonch <b>{sig.confidence}/100</b> · konfluens {sig.confluence_score} "
-        f"{_bar(sig.confidence)}",
+        f"📊 Ishonch <b>{sig.confidence}/100</b> · <b>{confidence_tier(sig.confidence)}</b> "
+        f"· konfluens {sig.confluence_score} {_bar(sig.confidence)}",
         *([_scorecard_line(sig.scorecard)] if sig.scorecard else []),
         "",
         f"📍 Kirish: <b>{sig.entry}</b>",

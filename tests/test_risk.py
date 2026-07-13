@@ -102,3 +102,13 @@ def test_crypto_exposure_cap():
                         flat_account(open_positions=positions))
     # BTC+ETH are also a correlation group → blocked either way; assert rejected
     assert not d.approved
+
+
+def test_consecutive_loss_lock():
+    d = ENGINE.evaluate(sig(), flat_account(consecutive_losses=3))
+    assert not d.approved and any("ketma-ket" in r for r in d.reasons)
+
+
+def test_consecutive_loss_under_limit_ok():
+    d = ENGINE.evaluate(sig(), flat_account(consecutive_losses=2))
+    assert d.approved

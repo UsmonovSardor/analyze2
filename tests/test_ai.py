@@ -82,3 +82,24 @@ def test_model_insufficient_samples_stays_in_collection(tmp_path, monkeypatch):
     monkeypatch.setenv("BL_MODELS_DIR", str(tmp_path))
     assert ai_model.train(_dataset(n=50)) is None            # < MIN_SAMPLES
     assert ai_model.ProbabilityModel().predict({"edge": 1.0}) is None
+
+
+def test_portfolio_metrics_full():
+    from blacklion.ai.stats import portfolio_metrics
+    rows = [_row(status="tp3", r=2.0), _row(status="stopped", r=-1.0),
+            _row(status="trailed", r=1.5), _row(status="stopped", r=-1.0),
+            _row(status="tp2", r=1.2)]
+    m = portfolio_metrics(rows)
+    assert m["n"] == 5
+    assert m["total_r"] == 2.7
+    assert m["win_rate"] == 0.6
+    assert m["profit_factor"] == round(4.7 / 2.0, 2)
+    assert m["max_drawdown"] >= 0
+    assert m["sharpe"] != 0.0
+    assert 0 <= m["kelly_pct"] <= 100
+
+
+def test_portfolio_metrics_empty_safe():
+    from blacklion.ai.stats import portfolio_metrics
+    m = portfolio_metrics([])
+    assert m["n"] == 0 and m["profit_factor"] == 0.0 and m["kelly_pct"] == 0.0

@@ -41,6 +41,7 @@ class AccountState(BaseModel):
     # per-symbol units per lot (XAUUSD=100, XAGUSD=5000, FX=100000). Sizing with
     # the FX contract on a metal computes a 0.00 lot and vetoes every trade.
     contract_sizes: dict[str, float] = {}
+    consecutive_losses: int = 0             # recent losing streak (TITAN Bible 26.9)
 
 
 class RiskDecision(BaseModel):
@@ -64,16 +65,22 @@ class RiskEngine:
         self.max_heat: float = float(r["maximum_portfolio_heat_pct"])
         self.max_exposure: dict = r.get("max_exposure_pct", {})
         self.corr_groups: list[list[str]] = r.get("correlation_groups", [])
+        # TITAN Bible 26.9 — stop after this many consecutive losses (0 = off)
+        self.max_consecutive_losses: int = int(r.get("max_consecutive_losses", 0) or 0)
         self._symbols = config.load("symbols")["symbols"]
 
     def evaluate(self, signal: Signal, account: AccountState) -> RiskDecision:
         reasons: list[str] = []
 
-        # ── Loss locks (doc 18 §11–12) ────────────────────────────────────
+        # ── Loss locks (doc 18 §11–12 + TITAN Bible 26.9) ─────────────────
         if account.realized_pnl_today_pct <= -self.daily_limit:
             reasons.append(f"daily loss limit {self.daily_limit}% reached")
         if account.realized_pnl_week_pct <= -self.weekly_limit:
             reasons.append(f"weekly loss limit {self.weekly_limit}% reached")
+        if (self.max_consecutive_losses
+                and account.consecutive_losses >= self.max_consecutive_losses):
+            reasons.append(f"{account.consecutive_losses} ketma-ket zarar "
+                           f"(limit {self.max_consecutive_losses}) — sovish davri")
 
         # ── Open-trade & heat caps (doc 18 §13, §15) ──────────────────────
         if len(account.open_positions) >= self.max_open:

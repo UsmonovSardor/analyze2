@@ -486,7 +486,8 @@ class Runtime:
             open_positions=positions,
             realized_pnl_today_pct=self.journal.realized_r(86400) * self.risk.risk_pct,
             realized_pnl_week_pct=self.journal.realized_r(7 * 86400) * self.risk.risk_pct,
-            contract_size=100000.0, contract_sizes=dict(self._contracts))
+            contract_size=100000.0, contract_sizes=dict(self._contracts),
+            consecutive_losses=self.journal.consecutive_losses())
 
     def _live_account_state(self, symbol: str | None = None) -> AccountState:
         # Each real position counts as one standard risk unit against the heat /
@@ -504,7 +505,8 @@ class Runtime:
                 86400, executed_only=True) * self.risk.risk_pct,
             realized_pnl_week_pct=self.journal.realized_r(
                 7 * 86400, executed_only=True) * self.risk.risk_pct,
-            contract_size=100000.0, contract_sizes=self._contract_map(symbol))
+            contract_size=100000.0, contract_sizes=self._contract_map(symbol),
+            consecutive_losses=self.journal.consecutive_losses(executed_only=True))
 
     def _broker_positions(self) -> list:
         try:

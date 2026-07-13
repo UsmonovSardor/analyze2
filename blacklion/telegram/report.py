@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from io import BytesIO
 
-from ..ai.stats import bucket_stats
+from ..ai.stats import bucket_stats, portfolio_metrics
 from ..core.logging import get_logger
 from .client import esc
 
@@ -73,14 +73,17 @@ def weekly_report_caption(rows: list[dict], days: int = 7) -> str:
     if not rows:
         return ("📈 <b>Haftalik hisobot</b>\n"
                 "Bu davrda yopilgan savdolar yo'q.")
-    total_r = sum(float(r["result_r"]) for r in rows)
-    wins = sum(1 for r in rows if float(r["result_r"]) > 0)
+    m = portfolio_metrics(rows)
     losses = [r for r in rows if float(r["result_r"]) < 0]
     full_stops = sum(1 for r in losses if r["status"] == "stopped")
     lines = [
         f"📈 <b>Haftalik hisobot</b> (oxirgi {days} kun)",
-        f"Σ <b>{total_r:+.2f}R</b> · {len(rows)} savdo · "
-        f"win {wins / len(rows) * 100:.0f}%",
+        f"Σ <b>{m['total_r']:+.2f}R</b> · {m['n']} savdo · "
+        f"win {m['win_rate'] * 100:.0f}%",
+        # institutional metrics (TITAN Bible 6.16)
+        f"PF {m['profit_factor']} · Sharpe {m['sharpe']} · "
+        f"Max DD {m['max_drawdown']}R · Recovery {m['recovery_factor']}",
+        f"Expectancy {m['expectancy']:+.2f}R/savdo",
     ]
     if losses:
         avg_loss = sum(float(r["result_r"]) for r in losses) / len(losses)

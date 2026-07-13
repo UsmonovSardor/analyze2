@@ -201,3 +201,12 @@ def test_rate_limit_wait_honors_retry_after_once():
     capped = TelegramClient._rate_limit_wait(
         429, {"parameters": {"retry_after": 500}}, False)
     assert capped == 60                                            # sanity cap
+
+
+def test_confidence_tiers():
+    from blacklion.telegram.format import confidence_tier
+    assert confidence_tier(96) == "ELITE"
+    assert confidence_tier(88) == "PRO"
+    assert confidence_tier(75) == "GOOD"
+    assert confidence_tier(55) == "WATCH"
+    assert confidence_tier(40) == "NO TRADE"

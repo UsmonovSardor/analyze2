@@ -124,6 +124,26 @@ class Journal:
                 "ORDER BY created_at").fetchall()
         return [(json.loads(r["features"]), r["status"], r["result_r"]) for r in rows]
 
+    def consecutive_losses(self, executed_only: bool = False) -> int:
+        """Recent losing streak (TITAN Bible 26.9) — counts back from the most
+        recent close until the first non-loss. executed_only restricts to real
+        (ticketed) trades so the shadow book never trips the live cooldown."""
+        q = ("SELECT result_r FROM signals WHERE closed_at IS NOT NULL "
+             "AND result_r IS NOT NULL")
+        if executed_only:
+            q += " AND ticket IS NOT NULL"
+        q += " ORDER BY closed_at DESC"
+        streak = 0
+        with self._conn() as c:
+            for row in c.execute(q):
+                r = row["result_r"] or 0
+                if r < -0.05:                 # a real loss (not a ~0 breakeven/stale)
+                    streak += 1
+                elif r > 0.05:                # a real win ends the streak
+                    break
+                # near-zero closes (breakeven/stale) are neutral — skip, don't reset
+        return streak
+
     def closed_rows(self, days: int | None = None) -> list[dict]:
         """Closed trades for the expectancy stats engine (blacklion/ai/stats.py):
         strategy/symbol/TF buckets with status, realized R and shadow pred_p."""

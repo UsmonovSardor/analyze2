@@ -8,6 +8,9 @@ weekly_loss_limit_pct: 6.0
 monthly_loss_limit_pct: 10.0
 maximum_open_trades: 5
 maximum_portfolio_heat_pct: 5.0
+# TITAN Bible 26.9 — cool off after N consecutive REAL losses (executed trades
+# in live mode; ~0R breakeven/stale closes are neutral). 0 disables.
+max_consecutive_losses: 3
 max_exposure_pct: {commodity: 2.0, forex: 4.0}
 correlation_groups:
   - [EURUSD, GBPUSD]
