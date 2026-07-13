@@ -19,6 +19,7 @@ from .core.logging import get_logger
 from .data.news import NewsGuard
 from .data.sources import MarketDataSource
 from .engines.market_structure import MarketStructureEngine
+from .engines.mtf import MultiTimeframe
 from .engines.pipeline import SignalPipeline
 from .features import FeatureEngineer
 from .execution import Broker, ExecutionEngine
@@ -53,9 +54,11 @@ class Runtime:
         self.pipeline = SignalPipeline()
         self.features = FeatureEngineer()
         self.structure = MarketStructureEngine()
+        self.mtf = MultiTimeframe(self.structure)    # higher-TF cascade (Bible 6)
         self.risk = RiskEngine()
         self.execution = ExecutionEngine(broker)
         symbol_cfg = config.load("symbols")["symbols"]
+        self._symbol_cfg: dict = symbol_cfg
         self.symbols: list[str] = list(symbol_cfg)
         # units per 1.0 lot per symbol (XAUUSD=100 vs FX=100000) — sizing with the
         # wrong contract rounds the lot to 0.00 and vetoes every metal trade. The
@@ -76,8 +79,11 @@ class Runtime:
         self.auto_execute: bool = config.env("BL_AUTO_EXECUTE", "1") == "1"
         # Publish tier: signals below this confidence stay journal-only (shadow
         # candidates that still label the ML dataset) — the group sees only 80+.
-        self.min_publish: int = int(config.engine("rule_engine")
-                                    .get("minimum_publish_confidence", 80))
+        rule_cfg = config.engine("rule_engine")
+        self.min_publish: int = int(rule_cfg.get("minimum_publish_confidence", 80))
+        # TITAN Bible 9.11 — trade only inside allowed kill zones (London/NY).
+        # Empty = no session gate (default: measure signal impact before enabling).
+        self.session_filter: list[str] = list(rule_cfg.get("session_filter", []) or [])
         # smart trade management knobs (risk.yaml) — early exits + runner trail
         self.mgmt: dict = config.load("risk").get("trade_management", {})
         # ML layer (docs 16-17): shadow predictions now, gate mode by config
@@ -123,6 +129,19 @@ class Runtime:
         ai_model.maybe_retrain(self.journal)         # learn from every closed trade
         return produced
 
+    def _spread_too_wide(self, symbol: str) -> tuple[float, float] | None:
+        """(spread, cap) when the LIVE spread exceeds the symbol's cap, else None.
+        Only gates when the broker reports a real spread (>0) — dry-run/paper has
+        none, so it never blocks the shadow feed."""
+        cap = float(self._symbol_cfg.get(symbol, {}).get("max_spread_points", 0) or 0)
+        if cap <= 0:
+            return None
+        try:
+            spread = float(self.broker.spread_points(symbol) or 0)
+        except Exception:
+            return None
+        return (spread, cap) if spread > cap else None
+
     def _refresh_throttle(self) -> None:
         """Evidence-based auto-throttle (ai/stats.py): strategies with proven
         negative expectancy are publish-blocked until they recover. Only trades
@@ -156,10 +175,24 @@ class Runtime:
         if event:
             log.info("NewsBlackout", symbol=symbol, event=event)
             return None
+        # session gate (TITAN Bible 9.11) — trade only inside allowed kill zones
+        if self.session_filter:
+            kz = self.pipeline.ict.kill_zone(datetime.now(timezone.utc))
+            if kz not in self.session_filter:
+                log.info("SessionGate", symbol=symbol, kill_zone=kz or "none")
+                return None
+        # spread hard-gate (TITAN Bible 9.12) — skip a symbol whose live spread
+        # blows past its cap; only when the broker actually reports one.
+        wide = self._spread_too_wide(symbol)
+        if wide:
+            log.info("SpreadGate", symbol=symbol, spread=wide[0], cap=wide[1])
+            return None
         df = self.source.fetch(symbol, entry_tf, self.candles)
         htf = self.source.fetch(symbol, context_tf, self.candles)
         htf_bullish = self.structure.analyze(symbol, htf).trend.bullish
-        decision = self.pipeline.run(symbol, df, htf_bullish=htf_bullish)
+        mtf = self.mtf.analyze(self.source, symbol, entry_tf)   # cascade (Bible 6)
+        decision = self.pipeline.run(symbol, df, htf_bullish=htf_bullish,
+                                     ts=datetime.now(timezone.utc), mtf=mtf)
         if decision.signal is None:
             return None
 

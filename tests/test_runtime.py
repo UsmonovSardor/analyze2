@@ -37,7 +37,7 @@ def test_scan_records_signal_when_generated(rt, monkeypatch):
                  confluence_score=90, reasons=["forced"])
     from blacklion.engines.rule_engine import RuleDecision
 
-    def fake_run(symbol, df, htf_bullish=None, ts=None):
+    def fake_run(symbol, df, htf_bullish=None, ts=None, mtf=None):
         return RuleDecision(symbol=symbol, decision="BUY", confluence_score=90,
                             confidence=88, reasons=["forced"], signal=sig)
 

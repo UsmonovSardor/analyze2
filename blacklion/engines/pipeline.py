@@ -37,8 +37,10 @@ class SignalPipeline:
 
     def run(self, symbol: str, df: pd.DataFrame,
             htf_bullish: bool | None = None,
-            ts: datetime | None = None) -> RuleDecision:
-        """df must carry open/high/low/close/volume/atr; newest row last."""
+            ts: datetime | None = None, mtf=None) -> RuleDecision:
+        """df must carry open/high/low/close/volume/atr; newest row last.
+        `mtf` (MTFResult) carries the higher-timeframe cascade for the conflict
+        engine + confidence (TITAN Bible ch.6)."""
         structure = self.structure.analyze(symbol, df)
         swings = self.structure.classify(self.structure.detect_swings(df))
         liquidity = self.liquidity.analyze(symbol, df, swings)
@@ -47,7 +49,8 @@ class SignalPipeline:
         ict = self.ict.analyze(symbol, df, swings,
                                trend_bullish=structure.trend.bullish, ts=ts)
         decision = self.rules.evaluate(symbol, df, structure, liquidity,
-                                       order_block, fvg, ict, htf_bullish=htf_bullish)
+                                       order_block, fvg, ict,
+                                       htf_bullish=htf_bullish, mtf=mtf)
         # stash the engine outputs so the Feature Engineer can snapshot them for
         # the signal that was just produced (single-threaded runtime)
         self.last = {"structure": structure, "liquidity": liquidity,

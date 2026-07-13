@@ -72,11 +72,14 @@ class RuleEngine:
         self.allow_counter: bool = bool(cfg.get("allow_countertrend", False))
         self.w: dict = cfg["weights"]
         self.risk = config.load("risk")
+        # TITAN Bible ch.6/9: MTF conflict gate + session filter. Allowed kill
+        # zones (London/NY per the bible); empty list disables the session gate.
+        self.mtf_conflict_gate: bool = bool(cfg.get("mtf_conflict_gate", True))
 
     def evaluate(self, symbol: str, df: pd.DataFrame,
                  structure: StructureResult, liquidity: LiquidityResult,
                  order_block: OrderBlockResult, fvg: FVGResult, ict: ICTResult,
-                 htf_bullish: bool | None = None) -> RuleDecision:
+                 htf_bullish: bool | None = None, mtf=None) -> RuleDecision:
         reasons: list[str] = []
         rejected: list[str] = []
 
@@ -90,6 +93,15 @@ class RuleEngine:
         regime = classify_regime(df)
         if regime == "chop":
             rejected.append("high-volatility chop regime (ATR spike)")
+
+        # ── MTF conflict engine (TITAN Bible 6.9/6.11) ────────────────────
+        # A higher timeframe pointing the OTHER way vetoes the trade — no signal
+        # on one timeframe against the cascade.
+        if (self.mtf_conflict_gate and mtf is not None and direction != "NO TRADE"
+                and mtf.conflicts(direction)):
+            against = [f"{tf}:{t}" for tf, t in mtf.trends.items()
+                       if t not in (direction, "NO TRADE")]
+            rejected.append("HTF cascade conflict (" + ", ".join(against) + ")")
 
         # ── Mandatory conditions (doc 15 §6) ──────────────────────────────
         if direction == "NO TRADE":
@@ -152,7 +164,7 @@ class RuleEngine:
                                 ob, fvg, ict)
         confidence = self._confidence(confluence, structure, liquidity,
                                       ob_aligned, fvg_aligned, ict,
-                                      htf_bullish, direction)
+                                      htf_bullish, direction, mtf)
         signal = self._build_signal(symbol, df, direction, structure, ob, fvg,
                                     confluence, confidence)
         if signal is None:
@@ -176,6 +188,11 @@ class RuleEngine:
             signal.fvg_zone = (fvg.nearest.gap_low, fvg.nearest.gap_high)
         if liquidity.liquidity_swept and liquidity.nearest_pool is not None:
             signal.liq_level = liquidity.nearest_pool
+        if mtf is not None and mtf.total:
+            aligned = mtf.agrees(direction)
+            reasons.append(
+                f"MTF: {aligned}/{mtf.total} yuqori TF mos ("
+                + ", ".join(f"{tf} {t}" for tf, t in mtf.trends.items()) + ")")
         signal.reasons = reasons
         bus.publish("SignalGenerated", symbol=symbol, direction=direction,
                     confidence=signal.confidence)
@@ -230,7 +247,7 @@ class RuleEngine:
 
     def _confidence(self, confluence: int, structure: StructureResult,
                     liquidity, ob_aligned: bool, fvg_aligned: bool, ict,
-                    htf_bullish: bool | None, direction) -> int:
+                    htf_bullish: bool | None, direction, mtf=None) -> int:
         """Confidence spreads the quality scale instead of clustering at 60–70
         (doc 15 §11 recalibrated): a base from confluence + structure strength,
         plus explicit bonuses for the independent confirmations that actually
@@ -250,6 +267,8 @@ class RuleEngine:
             extras += 4
         if htf_bullish is not None and (direction == "BUY") == htf_bullish:
             extras += 5              # higher-timeframe agreement
+        if mtf is not None and mtf.total:
+            extras += round(8 * mtf.score(direction))   # full cascade alignment
         return max(0, min(100, round(base + extras)))
 
     # Uzbek display names (professional caption; technical terms stay latin)

@@ -38,6 +38,12 @@ rule_engine:
   # shadow candidates — they still label the ML training set, but the group only
   # ever sees top-tier signals (user demand: 80–90, not 60).
   minimum_publish_confidence: 80
+  # TITAN Bible ch.6/9 — multi-timeframe conflict engine + session filter.
+  mtf_conflict_gate: true          # a higher TF pointing the other way vetoes
+  # Allowed ICT kill zones (trade London/NY only, per the bible). Empty [] = no
+  # session gate. Start empty so we don't over-restrict before measuring; widen
+  # to [london, new_york, ln_ny_overlap] once the cascade proves out.
+  session_filter: []
   require_htf_alignment: true
   allow_countertrend: false
   # doc 15 §10 weights (must sum to 100). OB+FVG folded into one "zone" so the

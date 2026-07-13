@@ -1,0 +1,10302 @@
+TITAN AI TRADING BIBLE
+1-БОБ (давоми)
+Market Structure — Бозор тузилишини аниқлаш
+1.12 Market Structure нима?
+Ботнинг биринчи вазифаси — бозорнинг ҳозирги тузилишини тушуниш.
+Бозор фақат 3 хил ҳолатда бўлади:
+Uptrend 
+Downtrend 
+Range 
+Агар бот бозор ҳолатини аниқлай олмаса, у савдо очмаслиги керак.
+1.13 Uptrend
+Uptrend қуйидаги кетма-кетлик билан аниқланади:
+Higher High (HH) 
+Higher Low (HL) 
+Масалан:
+HH
+      ▲
+     / \
+HL  /   \ HH
+   /     \
+  ▲       \
+ /         \
+HL
+Қоида:
+Агар охирги High аввалгисидан юқори бўлса; 
+Ва охирги Low ҳам аввалгисидан юқори бўлса; 
+→ Trend = Bullish
+AI Algorithm
+if last_high > previous_high and last_low > previous_low:
+    trend = "BUY"
+1.14 Downtrend
+Белгилари:
+Lower High (LH) 
+Lower Low (LL) 
+LH
+\
+ \
+  \
+   LL
+    \
+     \
+      LH
+        \
+         LL
+Қоида:
+if last_high < previous_high and last_low < previous_low:
+    trend = "SELL"
+1.15 Range
+Қуйидаги ҳолатларда бозор Range ҳисобланади:
+HH йўқ 
+HL йўқ 
+LL йўқ 
+LH йўқ 
+Нарх бир диапазонда айланади.
+Бу вақтда:
+trade = False
+1.16 Swing High
+Swing High:
+Икки томонида пастроқ High бўлган шам.
+▲
+▲ ▲
+▲ ▲ ▲
+Бу кейин BOS ҳисоблаш учун керак.
+1.17 Swing Low
+Swing Low:
+Икки томонида баландроқ Low бўлган шам.
+▼ ▼ ▼
+ ▼
+1.18 BOS (Break Of Structure)
+Бу Smart Money учун энг муҳим сигналлардан бири.
+BUY BOS:
+Нарх охирги Swing High'ни бузади.
+High
+────────────
+      ▲
+────────────
+Шундан кейин тренд давом этиши эҳтимоли ортади.
+SELL BOS
+Нарх Swing Low'ни бузади.
+────────────
+▼
+────────────
+BOS Algorithm
+if close > swing_high:
+    BOS = True
+if close < swing_low:
+    BOS = True
+1.19 Fake BOS
+Ҳар бир Break ҳақиқий эмас.
+Қуйидаги ҳолатларда BOS рад қилинади:
+Wick чиқди 
+Candle body ёпилмади 
+Volume паст 
+ATR паст 
+Алгоритм:
+if wick_break and close_inside:
+    BOS = False
+1.20 CHoCH
+Change Of Character
+Бу тренд ўзгаришининг биринчи белгиси.
+Масалан
+Downtrend
+↓
+Биринчи марта Higher High чиқди.
+↓
+CHoCH
+↓
+Trend Change
+Алгоритм
+if trend == "SELL":
+    if close > previous_lower_high:
+        choch = True
+1.21 MSS
+Market Structure Shift
+Бу CHoCH'дан ҳам кучли.
+Чунки
+BOS 
+Liquidity 
+CHoCH 
+бир вақтнинг ўзида содир бўлади.
+Бу элита сигнал ҳисобланади.
+1.22 Trend Score
+Бот ҳар бир текширув учун балл беради:
+Trend = 10
+HH = 5
+HL = 5
+BOS = 15
+CHoCH = 15
+MSS = 20
+Liquidity = 20
+Volume = 10
+Жами:
+100 балл.
+1.23 Савдо очиш қоидаси
+Агар:
+Trend ✔ 
+BOS ✔ 
+Liquidity ✔ 
+Volume ✔ 
+бўлса, бот кейинги текширув — Liquidity Sweep бўлимига ўтади.
+Кейинги қисм: 2-БОБ — Liquidity Engine (Buy-side ва Sell-side ликвидликни аниқлаш алгоритмлари, Liquidity Sweep, Inducement, Stop Hunt ва уларни AI орқали фильтрлаш).
+TITAN AI TRADING BIBLE
+2-БОБ — LIQUIDITY ENGINE
+2.1 Liquidity нима?
+Бозорнинг ҳақиқий ёқилғиси — ликвидлик.
+Институциялар катта ҳажмда савдо қилиш учун қарши томонда етарлича ордерлар бўлишига муҳтож. Шу сабабли нарх кўпинча аввал стоплар тўпланган жойга боради, кейин асосий ҳаракатни бошлайди.
+2.2 Liquidity турлари
+Buy-Side Liquidity (BSL)
+Одатда қуйидаги жойларда йиғилади:
+Equal High 
+Old High 
+Double Top 
+Range High 
+Бу ерда кўплаб Buy Stop ва Short Stop Loss ордерлари бўлади.
+Sell-Side Liquidity (SSL)
+Одатда қуйидаги жойларда:
+Equal Low 
+Old Low 
+Double Bottom 
+Range Low 
+Бу ерда Sell Stop ва Long Stop Loss ордерлари жамланади.
+2.3 Equal High
+Агар икки ёки ундан ортиқ максимумлар деярли бир хил даражада бўлса:
+High
+────────────
+     ▲   ▲
+────────────
+Бу Buy-Side Liquidity ҳисобланади.
+2.4 Equal Low
+────────────
+     ▼   ▼
+────────────
+Low
+Бу Sell-Side Liquidity ҳисобланади.
+2.5 Liquidity Sweep
+Liquidity Sweep — нарх ликвидликни олиб, кейин тезда орқага қайтиши.
+BUY мисоли:
+Equal High урилади. 
+Янги юқори ҳосил бўлади. 
+Кейинги шамлар пастга қайтиб кетади. 
+SELL мисоли:
+Equal Low урилади. 
+Янги паст ҳосил бўлади. 
+Кейин нарх юқорига қайтади. 
+2.6 Liquidity Grab
+Sweep ва Grab ўхшаш, аммо Grab тезроқ содир бўлади.
+Белгилари:
+Узун wick. 
+Candle body ликвидлик ташқарисида ёпилмайди. 
+Кейинги шам тескари ҳаракатни тасдиқлайди. 
+2.7 Stop Hunt
+Институциялар аввал стопларни йиғади.
+Кейин ҳақиқий ҳаракатни бошлайди.
+Шунинг учун бот:
+ҳар қандай breakout'ни қабул қилмайди; 
+аввал бу breakout ҳақиқийми ёки stop hunt эканини текширади. 
+2.8 AI Liquidity Algorithm
+buy_side = detect_equal_high()
+sell_side = detect_equal_low()
+if buy_side:
+    liquidity_zone = "BUY"
+elif sell_side:
+    liquidity_zone = "SELL"
+else:
+    liquidity_zone = None
+2.9 Sweep Detection
+if high > previous_equal_high:
+    if close < previous_equal_high:
+        sweep = True
+SELL учун:
+if low < previous_equal_low:
+    if close > previous_equal_low:
+        sweep = True
+2.10 Liquidity Score
+Шарт
+Балл
+Equal High/Low
+10
+Liquidity Sweep
+20
+Stop Hunt Confirmation
+15
+Rejection Candle
+10
+Volume Confirmation
+10
+2.11 Reject Conditions
+Бот сигнални рад этади, агар:
+Sweep йўқ. 
+Volume жуда паст. 
+Candle body тасдиқламаса. 
+ATR паст бўлса. 
+Liquidity жуда узоқ бўлса. 
+2.12 Premium & Discount
+Бот Fibonacci 50% чизиғидан фойдаланади.
+Premium → асосан SELL қидирилади. 
+Discount → асосан BUY қидирилади. 
+Бу йўналиш эмас, балки қўшимча фильтр сифатида ишлатилади.
+2.13 Liquidity + BOS
+Энг кучли комбинациялардан бири:
+Liquidity Sweep
+        ↓
+      BOS
+        ↓
+   Order Block
+        ↓
+       Entry
+Ботда бу кетма-кетлик тўлиқ текширилади.
+2.14 Trade Filter
+if not sweep:
+    reject_trade()
+if not bos:
+    reject_trade()
+if trend != signal_direction:
+    reject_trade()
+if volume < average_volume:
+    reject_trade()
+2.15 Elite Signal
+Энг юқори даражадаги сигнал учун қуйидагилар бир вақтнинг ўзида бажарилиши керак:
+Trend тасдиқланган. 
+Liquidity Sweep аниқланган. 
+BOS содир бўлган. 
+Volume юқори. 
+ATR етарли. 
+Order Block мавжуд. 
+FVG мавжуд. 
+Савдо London ёки New York сессиясида. 
+Катта иқтисодий янгилик йўқ. 
+Фақат шундай ҳолатларда бот савдо очишни кўриб чиқади.
+Кейинги боб: 3-БОБ — Order Block Engine. Унда Order Block, Breaker Block, Mitigation Block, Retest алгоритмлари ва AI орқали уларни баҳолаш қоидалари ёзилади.
+TITAN AI TRADING BIBLE
+3-БОБ — ORDER BLOCK ENGINE
+3.1 Order Block нима?
+Order Block (OB) — бу институционал иштирокчилар катта ҳажмда позиция тўплаган зона деб қаралади. Smart Money ёндашувида нарх кейинчалик шу зоналарга қайтиб реакция бериши мумкин.
+Бот Order Block'ни алоҳида сигнал сифатида эмас, балки бошқа тасдиқлар (масалан, тренд, бозор тузилиши ва ликвидлик) билан биргаликда баҳолайди.
+3.2 Bullish Order Block
+Bullish сценарий учун одатий кетма-кетлик:
+Пастга ҳаракат. 
+Кучли юқорига импульс. 
+Импульс олдиданги охирги bearish шам Order Block сифатида белгиланади. 
+Кейинчалик нарх шу зонага қайтса ва бошқа шартлар ҳам мос келса, BUY имконияти баҳоланади. 
+3.3 Bearish Order Block
+Bearish сценарий учун:
+Юқорига ҳаракат. 
+Кучли пастга импульс. 
+Импульс олдиданги охирги bullish шам Order Block сифатида белгиланади. 
+Қайтишдан кейин бошқа тасдиқлар билан бирга SELL баҳоланади. 
+3.4 Order Block Quality
+Ҳар бир OB бир хил эмас.
+Бот қуйидагиларни баҳолайди:
+Импульс кучи. 
+Order Block ҳажми. 
+BOS билан боғлиқлиги. 
+Liquidity Sweep мавжудлиги. 
+Қайта тестлар сони. 
+Волатиллик (ATR). 
+Савдо сессияси. 
+3.5 Fresh Order Block
+Энг юқори сифатли зона:
+ҳали биринчи марта тест қилинаётган; 
+бир неча марта бузилмаган; 
+кучли импульс билан шаклланган. 
+Бундай зоналарга юқорироқ балл берилади.
+3.6 Weak Order Block
+Қуйидаги ҳолатларда балл пасаяди:
+Зона бир неча марта тест қилинган. 
+Импульс кучсиз. 
+BOS йўқ. 
+ATR паст. 
+Volume паст. 
+3.7 Order Block Retest
+Бот фақат зонага қайтишни эмас, балки реакцияни ҳам текширади.
+Масалан:
+Нарх Order Block'га қайтди. 
+Рад этиш (rejection) шами ҳосил бўлди. 
+Кейинги шам йўналишни тасдиқлади. 
+Шундан кейингина сигнал кўриб чиқилади.
+3.8 Order Block Rejection
+Қабул қилинадиган белгилари:
+Узун соя (wick). 
+Кучли танали шам. 
+Кетма-кет бир нечта тасдиқловчи шам. 
+Бу белгилари йўқ бўлса, бот сигнални кучсиз деб баҳолайди.
+3.9 AI Scoring
+Шарт
+Балл
+Fresh Order Block
+20
+BOS билан боғлиқ
+20
+Liquidity Sweep
+20
+Rejection
+15
+Volume тасдиғи
+15
+ATR тасдиғи
+10
+Жами: 100 балл.
+3.10 Order Block Reject
+Бот савдони рад этади, агар:
+Order Block аниқланмаган бўлса. 
+Зона кўп марта тест қилинган бўлса. 
+BOS тасдиғи бўлмаса. 
+Liquidity Sweep бўлмаса. 
+Волатиллик жуда паст бўлса. 
+3.11 AI Entry Logic
+Trend
+↓
+Market Structure
+↓
+Liquidity Sweep
+↓
+BOS
+↓
+Fresh Order Block
+↓
+Retest
+↓
+Rejection Candle
+↓
+Risk Check
+↓
+Trade
+Бот фақат юқоридаги кетма-кетлик сақланганда савдони кўриб чиқади.
+3.12 Elite Entry
+Энг кучли кириш сценарийси:
+Trend тасдиқланган. 
+Market Structure трендни қўллаб-қувватлайди. 
+Liquidity Sweep мавжуд. 
+BOS содир бўлган. 
+Fresh Order Block мавжуд. 
+Биринчи Retest. 
+Rejection шами. 
+Volume юқори. 
+ATR етарли. 
+Катта янгилик йўқ. 
+London ёки New York сессияси. 
+Бу шартлар бажарилса ҳам, бу фойда кафолати эмас. Улар фақат тарихий жиҳатдан юқорироқ эҳтимолга эга ҳолатларни танлаш учун хизмат қилади.
+Кейинги боб
+4-БОБ — Fair Value Gap (FVG) Engine
+Унда қуйидагилар ёритилади:
+Fair Value Gap (FVG) 
+Inversion FVG 
+Balanced Price Range (BPR) 
+FVG + Order Block комбинациялари 
+AI Entry Score 
+Multi-Timeframe FVG алгоритмлари 
+Trade Validation Engine 
+TITAN AI TRADING BIBLE
+4-БОБ — FAIR VALUE GAP (FVG) ENGINE
+4.1 Fair Value Gap (FVG) нима?
+Fair Value Gap (FVG) — бу учта кетма-кет шам орасида нарх тўлиқ савдо қилмаган (номутаносиб) ҳудуд сифатида қаралади. Smart Money ёндашувида нарх баъзан шу ҳудудга қайтиб, кейин асосий ҳаракатини давом эттириши мумкин.
+Бот FVG'ни мустақил сигнал сифатида эмас, балки бошқа тасдиқлар билан бирга баҳолайди.
+4.2 Bullish FVG
+Оддий сценарий:
+Кучли юқорига импульс.
+Учта шам орасида пастки ва юқори чегара орасида бўшлиқ ҳосил бўлади.
+Кейинчалик нарх шу ҳудудга қайтса, бошқа шартлар ҳам мос келса, BUY имконияти баҳоланади.
+4.3 Bearish FVG
+Оддий сценарий:
+Кучли пастга импульс.
+Учта шам орасида FVG ҳосил бўлади.
+Қайтишдан кейин бошқа тасдиқлар билан SELL имконияти баҳоланади.
+4.4 FVG сифати
+Бот қуйидагиларни текширади:
+Импульс кучи.
+FVG ҳажми.
+BOS билан боғлиқлиги.
+Liquidity Sweep мавжудлиги.
+Order Block билан яқинлиги.
+ATR ва Volume.
+4.5 Fresh FVG
+Юқори сифатли FVG:
+Янги шаклланган.
+Ҳали тўлдирилмаган.
+Кучли импульс натижасида ҳосил бўлган.
+Бундай зоналарга юқори балл берилади.
+4.6 Filled FVG
+Агар нарх FVG'ни тўлиқ тўлдирган бўлса, унинг аҳамияти пасайиши мумкин.
+Шунинг учун бот бундай зоналарга пастроқ балл беради.
+4.7 Inversion FVG
+Баъзан аввалги Bullish FVG кейинчалик қаршилик (Resistance) сифатида ишлаши ёки Bearish FVG қўллаб-қувватлаш (Support) вазифасини бажариши мумкин.
+Бот бу ҳолатни алоҳида белгилайди.
+4.8 Balanced Price Range (BPR)
+Агар Bullish ва Bearish FVG бир-бири билан кесишса, Balanced Price Range (BPR) ҳосил бўлиши мумкин.
+Бу ҳудудларда бот қўшимча эҳтиёткорлик билан қарор қабул қилади.
+4.9 FVG + Order Block
+Энг кучли комбинациялардан бири:
+Liquidity Sweep
+        ↓
+      BOS
+        ↓
+  Fresh Order Block
+        ↓
+      Fresh FVG
+        ↓
+      Retest
+        ↓
+      Entry
+4.10 AI Scoring
+Шарт
+Балл
+Fresh FVG
+20
+BOS тасдиғи
+20
+Order Block яқинлиги
+20
+Liquidity Sweep
+20
+Volume
+10
+ATR
+10
+Жами: 100 балл.
+4.11 Reject Conditions
+Бот савдони рад этади, агар:
+FVG аниқланмаган бўлса.
+FVG тўлиқ тўлдирилган бўлса.
+BOS йўқ бўлса.
+Liquidity Sweep бўлмаса.
+Trend йўналишига қарши бўлса.
+4.12 Multi-Timeframe Validation
+Бот FVG'ни бир нечта таймфреймда текширади.
+Масалан:
+H4 — асосий тренд.
+H1 — бозор тузилиши.
+M15 — FVG ва Order Block.
+M5 — аниқ кириш нуқтаси.
+Бу Multi-Timeframe таҳлил орқали паст таймфреймдаги тасодифий сигналларни камайтиришга ёрдам беради.
+4.13 Elite Entry
+Энг юқори баҳога эга сценарий:
+Trend тасдиқланган.
+Liquidity Sweep мавжуд.
+BOS тасдиқланган.
+Fresh Order Block.
+Fresh FVG.
+Retest.
+Rejection Candle.
+Volume юқори.
+ATR етарли.
+London ёки New York сессияси.
+Катта иқтисодий янгилик йўқ.
+Бу ҳам кафолат эмас, балки тарихий маълумотларга кўра юқори эҳтимолли ҳолатларни танлашга қаратилган қоидалар тўпламидир.
+Кейинги боб
+5-БОБ — Risk Management Engine
+Бу бўлимда қуйидагилар ёзилади:
+Dynamic Position Sizing
+Stop Loss ҳисоблаш
+Take Profit алгоритмлари
+Break Even
+Trailing Stop
+Daily Risk Limit
+Maximum Drawdown Control
+Portfolio Risk Filter
+AI Risk Score
+Trade Journal Engine
+TITAN AI TRADING BIBLE
+5-БОБ — RISK MANAGEMENT ENGINE
+5.1 Нега Risk Management биринчи ўринда?
+Кўпчилик стратегияга эътибор беради, лекин профессионал тизимда энг муҳим қисм — рискни бошқариш.
+Ботнинг вазифаси фақат сигнал топиш эмас, балки капитални ҳимоя қилиш ҳамдир.
+5.2 Асосий қоида
+Бир савдода депозитнинг белгиланган қисмигина хавф остига қўйилади.
+Тавсия этиладиган диапазон:
+Консерватив: 0.5%
+Стандарт: 1%
+Агрессив: 2%
+2% дан юқори риск фақат махсус ҳолатларда ва онгли қарор билан қўлланиши мумкин.
+5.3 Position Sizing
+Лот ҳажми автоматик ҳисобланади.
+Ҳисоблашда:
+Account Balance
+Risk %
+Stop Loss масофаси
+Инструментнинг тик қиймати
+эътиборга олинади.
+Бот ҳар бир савдо учун лотни қайта ҳисоблайди.
+5.4 Stop Loss
+Stop Loss тасодифий эмас.
+У қуйидаги жойлардан бирига қўйилади:
+Swing High / Swing Low ортига
+Order Block ташқарисига
+Liquidity Zone ташқарисига
+ATR асосида
+5.5 Dynamic Stop Loss
+Агар ATR ошса
+↓
+SL ҳам кенгаяди.
+Агар ATR камайса
+↓
+SL қисқаради.
+Бу турли бозор шароитларига мослашишга ёрдам беради.
+5.6 Take Profit
+Take Profit учун бир нечта ёндашув қўлланиши мумкин:
+Fixed RR (масалан, 1:2 ёки 1:3)
+Кейинги ликвидлик зонаси
+Кейинги муҳим структура нуқтаси
+Бот стратегияга қараб режимни танлайди.
+5.7 Break Even
+Агар нарх маълум масофага фойда томон юрса (масалан, 1R):
+Stop Loss кириш нуқтасига кўчирилади.
+Бу капитални ҳимоя қилишга ёрдам беради.
+5.8 Trailing Stop
+Trailing Stop фақат тренд давом этаётганда ишлатилади.
+Масалан:
+ATR асосида;
+ёки янги Swing Low / Swing High орқали.
+Бу катта трендларни ушлаб қолиш имконини беради.
+5.9 Partial Close
+Бот позициянинг маълум қисмини эртароқ ёпиши мумкин.
+Масалан:
+50% — 1R да;
+қолган қисми — кейинги мақсадгача.
+Бу фойдани қисман мустаҳкамлашга хизмат қилади.
+5.10 Daily Risk Limit
+Кунлик максимал риск белгиланади.
+Масалан:
+3 та кетма-кет зарар;
+ёки депозитнинг 3% кунлик йўқотилиши.
+Шундан кейин бот янги савдо очмайди.
+5.11 Weekly Drawdown
+Ҳафталик чеклов ҳам бўлиши мумкин.
+Масалан:
+6% drawdown.
+Чекловга етилса, бот савдони тўхтатади ва қайта кўриб чиқиш талаб этилади.
+5.12 News Protection
+Юқори таъсирли иқтисодий янгиликлар вақтида:
+янги савдо очилмайди;
+мавжуд позициялар учун алоҳида қоидалар ишлатилиши мумкин.
+5.13 Correlation Filter
+Агар икки актив кучли боғлиқ бўлса (масалан, EURUSD ва GBPUSD):
+бир вақтнинг ўзида иккаласида ҳам бир хил риск очиш чекланиши мумкин.
+Бу умумий рискни камайтиради.
+5.14 AI Risk Score
+Бот ҳар бир савдога риск балли беради.
+Фактор
+Балл
+Trend сифати
+20
+Market Structure
+20
+Liquidity
+15
+Order Block
+15
+FVG
+10
+Volume
+10
+News ҳолати
+5
+Correlation
+5
+Бу балл сигнал сифатини баҳолашга ёрдам беради, лекин у ҳам келажак натижасини кафолатламайди.
+5.15 Trading Journal
+Ҳар бир савдо автоматик сақланади.
+Масалан:
+Sana
+Symbol
+Timeframe
+Entry
+Stop Loss
+Take Profit
+Exit
+Risk
+R натижаси
+Қайси фильтрлар ишлагани
+Бу кейинги таҳлил ва такомиллаштириш учун муҳим.
+5.16 Elite Risk Engine
+Савдо очишдан олдин бот қуйидагиларни текширади:
+Capital Check
+      ↓
+Risk %
+      ↓
+Daily Limit
+      ↓
+Weekly Drawdown
+      ↓
+Correlation
+      ↓
+News Filter
+      ↓
+Position Size
+      ↓
+Trade
+Кейинги боб
+6-БОБ — Multi-Timeframe AI Engine
+Бу бўлимда:
+D1 → H4 → H1 → M15 → M5 таҳлили
+Timeframe синхронлаш
+Entry Confirmation
+AI Signal Aggregation
+Confidence Score
+Final Trade Decision
+каби механизмлар ёритилади.
+TITAN AI TRADING BIBLE
+6-БОБ — MULTI-TIMEFRAME AI ENGINE
+6.1 Нега Multi-Timeframe?
+Институционал трейдерлар битта графикка қараб қарор қабул қилмайди.
+AI ҳам битта таймфрейм асосида савдо очмаслиги керак.
+Ҳар бир таймфреймнинг ўз вазифаси бўлади.
+6.2 Timeframe Hierarchy
+Monthly
+↓
+Weekly
+↓
+Daily
+↓
+H4
+↓
+H1
+↓
+M15
+↓
+M5
+↓
+M1
+Ҳар бир таймфрейм бошқасини тасдиқлаши керак.
+6.3 Daily Engine
+Daily фақат битта саволга жавоб беради.
+Асосий тренд қаерга?
+BUY
+ёки
+SELL
+Бошқа ҳеч нарса.
+6.4 H4 Engine
+H4 текширади
+• Market Structure
+• BOS
+• CHoCH
+• Liquidity
+6.5 H1 Engine
+Бу ерда бот қидиради
+Fresh Order Block
+Fresh FVG
+Liquidity Sweep
+6.6 M15 Engine
+Бу ерда Entry тайёрланади.
+Текширилади
+✓ Order Block
+✓ FVG
+✓ Volume
+✓ ATR
+✓ RSI
+6.7 M5 Engine
+Фақат Entry.
+Бу ерда
+Stop Loss
+Take Profit
+Lot Size
+ҳисобланади.
+6.8 AI Confirmation
+Daily Trend
+↓
+H4 Structure
+↓
+H1 Liquidity
+↓
+M15 Setup
+↓
+M5 Entry
+↓
+Trade
+6.9 Reject Logic
+Агар
+Daily BUY
+лекин
+H4 SELL
+↓
+Trade Reject
+Daily BUY
+H4 BUY
+H1 BUY
+M15 BUY
+M5 BUY
+↓
+Trade Allow
+6.10 Multi Timeframe Score
+Daily
+20
+H4
+20
+H1
+20
+M15
+20
+M5
+20
+100 балл.
+6.11 Conflict Engine
+Агар
+3 timeframe BUY
+2 timeframe SELL
+↓
+Trade Reject
+5 timeframe BUY
+↓
+Trade Allow
+6.12 Confidence Score
+Бот ҳар бир сигнал учун ишонч коэффициенти чиқаради.
+0–40
+Weak
+40–60
+Average
+60–80
+Strong
+80–90
+Professional
+90–100
+Elite
+6.13 AI Decision
+Trend
+↓
+Structure
+↓
+Liquidity
+↓
+Order Block
+↓
+FVG
+↓
+Volume
+↓
+ATR
+↓
+EMA
+↓
+Session
+↓
+News
+↓
+Risk
+↓
+Confidence Score
+↓
+Trade
+6.14 Entry Engine
+Entry учун
+ҳамма фильтрлар
+TRUE
+бўлиши керак.
+Trend=True
+Liquidity=True
+BOS=True
+FVG=True
+OB=True
+Volume=True
+ATR=True
+News=True
+Risk=True
+Шундан кейингина
+Trade=True
+6.15 AI Self Learning
+Ҳар бир ёпилган савдодан кейин
+бот маълумотни сақлайди.
+Масалан
+Entry
+Exit
+SL
+TP
+Profit
+Loss
+Duration
+Spread
+Session
+Strategy
+Confidence Score
+6.16 Statistics Engine
+Бот ҳисоблайди
+Win Rate
+Average RR
+Profit Factor
+Sharpe Ratio
+Expectancy
+Average Hold Time
+Average SL
+Average TP
+Max Drawdown
+Recovery Factor
+6.17 Optimization Engine
+Ҳар 100 та савдодан кейин
+бот ҳисоблайди
+қайси фильтрлар яхши ишлаган.
+қайси фильтрлар ёмон ишлаган.
+Бу маълумот инсонга ҳисобот сифатида чиқарилади. Бот ўз қоидаларини мустақил равишда ўзгартирмайди, чунки бу хавфли бўлиши мумкин; оптимизация алоҳида тестлар орқали тасдиқланади.
+6.18 AI Dashboard
+Бот Telegram'га юборади
+Trend
+BUY
+Confidence
+93%
+Risk
+1%
+RR
+1 : 3
+Probability
+High
+Session
+London
+News
+Safe
+Trade
+READY
+6.19 Elite Trade
+Фақат
+Trend
+Liquidity
+BOS
+CHoCH
+Order Block
+FVG
+Volume
+ATR
+EMA
+Session
+Risk
+ҳаммаси тасдиқласа
+Trade очилади.
+6.20 TITAN ENGINE v1
+Market Scanner
+↓
+Trend AI
+↓
+Liquidity AI
+↓
+Market Structure AI
+↓
+Order Block AI
+↓
+FVG AI
+↓
+Volume AI
+↓
+ATR AI
+↓
+EMA AI
+↓
+Session AI
+↓
+News AI
+↓
+Risk Engine
+↓
+Confidence Engine
+↓
+Signal Engine
+↓
+Trade Engine
+↓
+Journal
+↓
+Statistics
+↓
+Report
+Кейинги боб — 7-БОБ: Institutional Volume & Volume Profile Engine
+Унда қуйидагилар бўлади:
+Real Volume ва Tick Volume
+Delta
+Cumulative Delta
+Volume Spike Detection
+VWAP
+Volume Profile
+POC (Point of Control)
+Value Area High / Low
+Absorption
+Exhaustion
+Institutional Entry Detection
+AI Volume Score
+Бу бўлим ботнинг сигналларини янада аниқроқ фильтрлашга ёрдам беради, аммо у ҳам келажакдаги натижани кафолатламайди.
+TITAN AI TRADING BIBLE
+7-БОБ — INSTITUTIONAL VOLUME ENGINE
+7.1 Volume нима?
+Нарх қаерга кетишини
+Volume айтади.
+Шам фақат натижа.
+Volume эса сабаб.
+7.2 Smart Money Volume
+Институциялар
+катта ордерни
+битта жойлаштирмайди.
+Улар
+100
+200
+300
+та бўлакка бўлиб
+бозорга киритади.
+Бот
+айнан шуни ушлаши керак.
+7.3 Tick Volume
+Forex
+Real Volume бермайди.
+Шунинг учун
+Tick Volume ишлатилади.
+Tick Volume
+катта ҳаракатни
+яхши кўрсатади.
+7.4 Real Volume
+Crypto
+Futures
+Stocks
+Real Volume беради.
+Бу энг яхши маълумот.
+7.5 Volume Spike
+Катта иштирокчи кирганда
+Volume
+ўртачадан
+2-3 баравар
+ошади.
+Бу Spike.
+AI
+Spike'ни аниқлаши керак.
+7.6 Volume Confirmation
+BUY
+↓
+Bull Candle
+↓
+High Volume
+↓
+Trend Continue
+SELL
+↓
+Bear Candle
+↓
+High Volume
+↓
+Trend Continue
+7.7 Fake Breakout
+Breakout бор
+лекин
+Volume йўқ.
+↓
+Trade Reject
+7.8 Exhaustion
+Нарх ўсаяпти
+лекин
+Volume тушяпти.
+↓
+Trend Weak
+↓
+Reversal Probability
+7.9 Absorption
+Катта ордерлар
+ҳамма сотувчиларни
+ютиб юбораяпти.
+Нарх тушмайди.
+↓
+BUY Probability
+7.10 Delta
+Delta
+Buyer Volume
+Seller Volume
+Positive
+BUY
+Negative
+SELL
+7.11 Cumulative Delta
+Бу
+институциялар
+ким томонда
+эканини
+кўрсатади.
+7.12 VWAP
+VWAP
+Institution Average Price
+BUY
+Price > VWAP
+SELL
+Price < VWAP
+7.13 POC
+Point Of Control
+Энг катта
+Volume
+жойлашган
+нарх.
+Институциялар
+шу ерга
+қайтишни
+яхши кўради.
+7.14 Value Area
+70%
+Volume
+қайси зонада
+бўлган.
+VAH
+Value Area High
+VAL
+Value Area Low
+7.15 AI Volume Score
+Volume Spike
+20
+VWAP
+15
+POC
+15
+Delta
+15
+Cumulative Delta
+15
+ATR
+10
+Trend
+10
+Liquidity
+10
+100
+7.16 Reject Engine
+Trade Reject
+агар
+Volume
+Average дан
+паст.
+Reject
+агар
+Delta
+қарама қарши.
+Reject
+агар
+VWAP
+қарама қарши.
+Reject
+агар
+POC
+узоқ.
+7.17 Institutional Entry
+AI
+фақат
+қуйидаги ҳолатда
+Trade очади
+Trend
+Liquidity
+BOS
+OB
+FVG
+VWAP
+POC
+Volume Spike
+Delta
+ATR
+↓
+ENTRY
+7.18 Elite Confirmation
+Trend
+↓
+Liquidity
+↓
+BOS
+↓
+CHoCH
+↓
+Order Block
+↓
+FVG
+↓
+VWAP
+↓
+Volume Spike
+↓
+Delta
+↓
+POC
+↓
+Risk
+↓
+Trade
+7.19 Confidence Formula
+Trend
+10
+Liquidity
+10
+BOS
+10
+Order Block
+10
+FVG
+10
+VWAP
+10
+Volume
+10
+POC
+10
+ATR
+10
+Risk
+10
+=
+100
+7.20 TITAN VOLUME AI
+Market Scanner
+↓
+Trend AI
+↓
+Volume AI
+↓
+Liquidity AI
+↓
+Order Block AI
+↓
+FVG AI
+↓
+VWAP AI
+↓
+POC AI
+↓
+Delta AI
+↓
+Risk Engine
+↓
+Confidence Engine
+↓
+Trade
+8-БОБ (кейинги)
+INSTITUTIONAL LIQUIDITY HUNTER
+Бу бобда:
+Stop Hunt Detection
+Liquidity Grab
+Inducement
+Equal High/Low Engine
+Buy Side / Sell Side Liquidity
+Trap Detection
+Fake BOS Detector
+Smart Money Trap
+AI Manipulation Detector
+ёзилади.
+Бу боб TITAN AI'нинг энг муҳим қисмларидан бири бўлади.
+TITAN AI TRADING BIBLE
+8-БОБ — INSTITUTIONAL LIQUIDITY HUNTER
+8.1 Бозор қандай ҳаракатланади?
+AI биринчи навбатда шуни тушуниши керак:
+Нарх тасодифий эмас.
+Нарх
+Liquidity
+↓
+Stop
+↓
+Order
+↓
+Imbalance
+томон ҳаракат қилади.
+8.2 Liquidity Cycle
+Liquidity
+↓
+Sweep
+↓
+BOS
+↓
+Order Block
+↓
+FVG
+↓
+Mitigation
+↓
+Expansion
+↓
+Target Liquidity
+Бу цикл TITAN AI'нинг асосий логикаси ҳисобланади.
+8.3 Equal High Engine
+Бот ҳар бир свечани текширади.
+if abs(high1-high2)<=2 pip:
+    EqualHigh=True
+Агар 3 та ёки ундан кўп High бир хил бўлса
+↓
+High Liquidity Score
+8.4 Equal Low Engine
+if abs(low1-low2)<=2 pip:
+    EqualLow=True
+8.5 Stop Hunt Detector
+Бу энг муҳим модуллардан бири.
+AI текширади
+• Wick каттами
+• Candle Close қаерда
+• Volume
+• ATR
+• Delta
+• Liquidity
+8.6 Smart Stop Hunt
+Equal High
+↓
+Spike
+↓
+Close Inside
+↓
+Volume Spike
+↓
+SELL
+Бу классик Stop Hunt ҳисобланади.
+8.7 Buy Side Liquidity
+Бот белгилайди
+Old High
+Weekly High
+Daily High
+Equal High
+Asian High
+London High
+Ҳаммаси картага туширилади.
+8.8 Sell Side Liquidity
+Old Low
+Weekly Low
+Daily Low
+Equal Low
+Asian Low
+London Low
+8.9 Liquidity Map
+AI ҳар бир ликвидлик зонасини хотирага ёзади.
+Daily High
+Weekly High
+Monthly High
+Equal High
+Trend High
+Internal High
+8.10 Trap Detector
+Бозорда
+энг кўп пул
+Trap орқали йўқотилади.
+AI
+Trap'ни
+олдидан
+аниқлаши керак.
+8.11 Fake Breakout Detector
+if Breakout:
+    if Volume<Average:
+        Reject
+    if CloseInside:
+        Reject
+    if ATR Low:
+        Reject
+8.12 Manipulation Engine
+Институциялар
+аввал
+Liquidity
+олади.
+Кейин
+асосий ҳаракат.
+AI
+бу фазани
+аниқлаши шарт.
+8.13 Inducement
+Институциялар
+одамларни
+нотўғри Entry қилишга
+мажбур қилади.
+Бу
+Inducement.
+AI
+бундай структураларни
+таниши керак.
+8.14 Smart Money Trap
+Retail BUY
+↓
+Liquidity
+↓
+Stop Hunt
+↓
+BOS
+↓
+SELL
+ёки
+Retail SELL
+↓
+Liquidity
+↓
+Stop Hunt
+↓
+BOS
+↓
+BUY
+8.15 Liquidity Strength Score
+Шарт
+Балл
+Equal High/Low
+10
+Weekly Liquidity
+15
+Daily Liquidity
+10
+Stop Hunt
+20
+Fake Breakout
+15
+Volume Spike
+10
+BOS
+10
+FVG
+10
+Жами: 100
+8.16 AI Memory
+Бот
+ҳар бир
+Liquidity
+Zone'ни
+сақлайди.
+Monthly
+Weekly
+Daily
+H4
+H1
+M15
+M5
+8.17 Smart Liquidity Scanner
+Market Scan
+↓
+Equal High
+↓
+Equal Low
+↓
+Stop Hunt
+↓
+Liquidity Sweep
+↓
+BOS
+↓
+Order Block
+↓
+FVG
+↓
+Trade
+8.18 Confidence Engine
+Агар
+Liquidity Score
+80+
+↓
+Trade Possible
+90+
+↓
+Professional Signal
+95+
+↓
+Elite Signal
+8.19 AI Decision
+Trend
+↓
+Liquidity
+↓
+Manipulation
+↓
+Trap
+↓
+Sweep
+↓
+BOS
+↓
+OB
+↓
+FVG
+↓
+Volume
+↓
+Risk
+↓
+ENTRY
+8.20 TITAN SMART MONEY ENGINE
+Scanner
+↓
+Trend AI
+↓
+Liquidity AI
+↓
+Trap AI
+↓
+Stop Hunt AI
+↓
+Manipulation AI
+↓
+Order Block AI
+↓
+FVG AI
+↓
+Volume AI
+↓
+Risk AI
+↓
+Trade AI
+9-БОБ — ADVANCED ENTRY ENGINE
+Кейинги бобда ёзилади:
+Precision Entry
+Sniper Entry
+Confirmation Candle Engine
+Rejection Engine
+Engulfing AI
+Pin Bar AI
+Inside Bar AI
+2 Bar Breakout Engine
+Candle Scoring System
+Entry Optimization Engine
+Бу бўлимда TITAN AI'нинг аниқ кириш алгоритми шакллантирилади. Кейинги бобларда эса бот архитектураси, Python/MT5 амалга оширилиши ва тест қилиш тизими ёритилади.
+TITAN AI TRADING BIBLE
+9-БОБ — ADVANCED ENTRY ENGINE
+Эслатма: Бу бўлимдаги қоидалар юқори эҳтимолли сценарийларни танлаш учун мўлжалланган. Улар кафолатли натижа бермайди ва албатта тарихий маълумотлар ҳамда демо муҳитда текширилиши керак.
+9.1 Entry Engine мақсади
+Кўпчилик ботлар биринчи сигналда савдо очади.
+TITAN AI эса:
+1000 та имконият
+↓
+990 тасини рад қилади
+↓
+10 тасини текширади
+↓
+2–3 тасинигина қабул қилади
+Мақсад — сигналлар сонини эмас, сифатини ошириш.
+9.2 Entry Hierarchy
+Trend
+↓
+Market Structure
+↓
+Liquidity
+↓
+Order Block
+↓
+FVG
+↓
+Volume
+↓
+Session
+↓
+Risk
+↓
+Entry
+Бирор босқич тасдиқланмаса, кейинги босқичга ўтилмайди.
+9.3 Confirmation Candle
+Киришдан олдин бот қуйидагиларни баҳолайди:
+шам танаси (body) катталиги;
+юқори ва пастки соялар (wick);
+ёпилиш жойи;
+олдинги шамларга нисбатан ҳолати.
+Бу хусусиятлар тренд давом этиши ёки рад этилиш эҳтимолини баҳолашга ёрдам беради.
+9.4 Rejection Candle
+Кучли рад этиш белгилари:
+узун соя;
+кучли ёпилиш;
+муҳим зонадан қайтиш.
+Бот буни Order Block ёки FVG каби зоналар билан бирга баҳолайди.
+9.5 Engulfing Pattern
+Агар тренд йўналишида кучли engulfing шам ҳосил бўлса ва бошқа фильтрлар ҳам мос келса, сигнал баҳоси оширилади.
+Бу бир ўзига савдо очиш учун етарли эмас.
+9.6 Pin Bar
+Pin Bar баҳолашда:
+соя узунлиги;
+тана улуши;
+қаерда шакллангани (ликвидлик, Order Block ва ҳ.к.)
+ҳисобга олинади.
+9.7 Inside Bar
+Inside Bar мустақил сигнал эмас.
+У консолидацияни кўрсатиши мумкин.
+Агар Breakout бошқа шартлар билан тасдиқланса, бот уни кўриб чиқади.
+9.8 2-Bar Confirmation
+Сен аввал қизиққан 2 Bar стратегияси ҳам модул сифатида қўшилади.
+Бот текширади:
+иккинчи шам биринчи шам экстремумини буздими;
+бу бузилиш тренд билан мосми;
+ликвидликдан кейин келдими;
+Volume тасдиқладими.
+Шу ҳолдагина балл қўшилади.
+9.9 Entry Score
+Фактор
+Балл
+Trend
+15
+Market Structure
+15
+Liquidity
+15
+Order Block
+15
+FVG
+10
+Candle Confirmation
+10
+Volume
+10
+Session
+5
+Risk Filter
+5
+Жами: 100 балл
+9.10 Entry Categories
+95–100 → Elite
+90–94 → Professional
+80–89 → Strong
+70–79 → Moderate
+70 дан паст → Рад этилади
+9.11 Session Filter
+Бот вақтни ҳам ҳисобга олади.
+Масалан:
+London очилиши.
+New York очилиши.
+Ликвидлик юқори бўлган вақтлар.
+Паст ликвидлик даврларида янги сигналларга эҳтиёткорлик билан ёндашилади.
+9.12 Spread Filter
+Агар спред белгиланган чегарадан юқори бўлса:
+Trade = Reject
+Бу айниқса янгиликлар ёки паст ликвидлик вақтида муҳим.
+9.13 Slippage Filter
+Агар бажарилиш нархи режалаштирилган кириш нуқтасидан ортиқча оғса:
+савдо бекор қилиниши;
+ёки қайта ҳисобланиши мумкин.
+9.14 Final Validation
+Савдо очишдан олдин якуний текширув:
+Trend ✔
+Market Structure ✔
+Liquidity ✔
+Order Block ✔
+FVG ✔
+Volume ✔
+Spread ✔
+Risk ✔
+↓
+READY
+9.15 Execution Engine
+Текширувлардан кейин:
+Entry нархи ҳисобланади.
+Stop Loss ҳисобланади.
+Take Profit ҳисобланади.
+Лот ҳажми ҳисобланади.
+Ордер юборилади.
+9.16 Trade Monitoring
+Ордер очилгандан кейин ҳам бот ишлашда давом этади.
+Назорат қилинади:
+Spread.
+Volatility.
+Break Even вақти.
+Trailing Stop.
+Partial Close.
+News.
+9.17 Trade Exit
+Позиция қуйидаги сабаблардан бири билан ёпилади:
+Stop Loss.
+Take Profit.
+Trailing Stop.
+Олдиндан белгиланган қоидага мувофиқ эрта чиқиш.
+9.18 Journal Update
+Ёпилган ҳар бир савдо журналга ёзилади:
+Entry.
+Exit.
+Натижа.
+R-мултипликатор.
+Қайси фильтрлар ишлагани.
+Confidence Score.
+9.19 TITAN Entry Pipeline
+Market Scan
+    ↓
+Trend
+    ↓
+Structure
+    ↓
+Liquidity
+    ↓
+Order Block
+    ↓
+FVG
+    ↓
+Candle Confirmation
+    ↓
+Risk
+    ↓
+Execution
+    ↓
+Monitoring
+    ↓
+Journal
+10-БОБ — BOT ARCHITECTURE
+Кейинги бўлимда трейдинг назариясидан амалий архитектурага ўтамиз:
+Python модуллари
+Telegram Bot Architecture
+MetaTrader 5 интеграцияси
+PostgreSQL базаси
+Redis
+Docker
+VPS
+API структураси
+Логлаш
+Backtesting Engine
+Live Trading Engine
+Monitoring Dashboard
+Шу ердан китоб энди назариядан реал ишлайдиган тизим архитектурасига ўтади.
+TITAN AI TRADING BIBLE
+10-БОБ — BOT ARCHITECTURE (PROFESSIONAL)
+10.1 TITAN AI Архитектураси
+Профессионал бот бир файлдан иборат бўлмаслиги керак.
+У микросервис архитектурасида қурилади.
+Telegram
+↓
+API
+↓
+Signal Engine
+↓
+AI Engine
+↓
+Risk Engine
+↓
+Execution Engine
+↓
+MT5
+↓
+Broker
+10.2 Project Structure
+TITAN_AI/
+config/
+core/
+ai/
+market/
+liquidity/
+orderblock/
+fvg/
+volume/
+risk/
+execution/
+strategies/
+database/
+telegram/
+backtest/
+optimizer/
+logs/
+reports/
+tests/
+main.py
+10.3 Core Engine
+Core бутун ботнинг юраги.
+У бошқаради
+• Scanner
+• Scheduler
+• AI
+• Database
+• Risk
+• Telegram
+10.4 Market Scanner
+Ҳар бир секундда
+бот
+барча Symbol'ларни
+скан қилади.
+EURUSD
+GBPUSD
+USDJPY
+XAUUSD
+BTCUSD
+ETHUSD
+NAS100
+US30
+10.5 Scanner Pipeline
+Download Data
+↓
+Clean Data
+↓
+Trend
+↓
+Liquidity
+↓
+BOS
+↓
+Order Block
+↓
+FVG
+↓
+Volume
+↓
+Risk
+↓
+Signal
+10.6 AI Engine
+Бу ботнинг мияси.
+У
+қарор қабул қилади.
+Кириш параметрлари
+Trend
+Liquidity
+Structure
+Volume
+ATR
+EMA
+VWAP
+Session
+Spread
+News
+Risk
+Чиқиш
+BUY
+SELL
+WAIT
+REJECT
+10.7 Risk Engine
+Ҳисоблайди
+Lot
+SL
+TP
+RR
+Daily Risk
+Weekly Risk
+Exposure
+Correlation
+10.8 Execution Engine
+Бу модул
+MetaTrader 5
+билан ишлайди.
+BUY
+↓
+Check
+↓
+Send Order
+↓
+Verify
+↓
+Journal
+↓
+Monitor
+10.9 Monitor Engine
+Trade очилгандан кейин
+AI
+доимий назорат қилади.
+SL
+TP
+Spread
+ATR
+News
+Volume
+Time
+10.10 Database
+PostgreSQL
+Жадваллар
+users
+accounts
+symbols
+candles
+signals
+orders
+positions
+journal
+statistics
+settings
+logs
+10.11 Signal Database
+Ҳар бир сигнал сақланади.
+Time
+Symbol
+Entry
+SL
+TP
+Confidence
+Risk
+Strategy
+Result
+10.12 Statistics Database
+Ҳар бир стратегия учун
+алоҳида статистика.
+Win Rate
+RR
+PF
+Sharpe
+Max DD
+Average Win
+Average Loss
+10.13 Journal Engine
+Ҳеч нарса ўчмайди.
+Ҳаммаси
+сақланади.
+10.14 Telegram Engine
+Командалар
+/start
+/help
+/status
+/signals
+/report
+/settings
+/backtest
+/statistics
+/portfolio
+10.15 Admin Panel
+Фақат админ учун.
+Users
+Accounts
+Strategies
+Logs
+Restart
+Broadcast
+Risk
+Reports
+10.16 Report Generator
+Ҳар куни
+бот PDF ҳисобот тайёрлайди.
+Ичида
+Trades
+Profit
+Loss
+RR
+Win Rate
+Drawdown
+Balance
+Equity
+Open Trades
+10.17 AI Logger
+Ҳар бир қарор ёзилади.
+Time
+Reason
+Indicator
+Liquidity
+Decision
+Confidence
+10.18 Error Engine
+Хатолар
+автоматик
+сақланади.
+Broker Error
+Network
+Timeout
+Spread
+Rejected
+Retry
+10.19 Backup Engine
+Ҳар куни
+Database
+Backup
+Logs
+Settings
+сақланади.
+10.20 TITAN BOT FLOW
+Start
+↓
+Download Market
+↓
+Scanner
+↓
+Trend
+↓
+Liquidity
+↓
+Structure
+↓
+Order Block
+↓
+FVG
+↓
+Volume
+↓
+Risk
+↓
+AI Decision
+↓
+Execution
+↓
+Monitoring
+↓
+Journal
+↓
+Statistics
+↓
+Optimization
+↓
+End
+10.21 Professional Modules
+Scanner AI
+Trend AI
+Liquidity AI
+Order Block AI
+FVG AI
+Volume AI
+Session AI
+News AI
+Risk AI
+Money Management AI
+Execution AI
+Statistics AI
+Optimizer AI
+Journal AI
+Telegram AI
+Dashboard AI
+10.22 Enterprise Features
+Multi Account
+Multi Broker
+Multi Symbol
+Multi Strategy
+VPS Ready
+Docker Deployment
+REST API
+Web Dashboard
+Telegram Alerts
+Email Reports
+Auto Backup
+Audit Logs
+10.23 TITAN v3 Architecture
+Market Data
+↓
+AI Scanner
+↓
+Trend Engine
+↓
+Liquidity Engine
+↓
+Market Structure Engine
+↓
+Order Block Engine
+↓
+FVG Engine
+↓
+Volume Engine
+↓
+Session Engine
+↓
+News Engine
+↓
+Risk Engine
+↓
+Execution Engine
+↓
+Monitoring Engine
+↓
+Statistics Engine
+↓
+Learning Engine
+↓
+Dashboard
+↓
+Telegram
+11-БОБ
+Кейинги бобда Python AI Source Architecture ёзилади.
+Унда:
+Clean Code Architecture
+Design Patterns
+Async Programming (asyncio)
+aiogram
+PostgreSQL
+SQLAlchemy
+Redis
+Celery
+Docker
+GitHub CI/CD
+Unit Tests
+Integration Tests
+Backtesting Framework
+Strategy Plug-in System
+каби профессионал дастурий архитектура кўриб чиқилади.
+TITAN AI TRADING BIBLE
+11-БОБ — PYTHON AI SOURCE ARCHITECTURE
+11.1 Professional Architecture
+Профессионал ботда ҳамма код main.py ичида ёзилмайди.
+Ҳар бир вазифа алоҳида модулга ажратилади.
+TITAN_AI/
+main.py
+config.py
+loader.py
+requirements.txt
+.env
+core/
+ai/
+market/
+execution/
+telegram/
+database/
+backtest/
+optimizer/
+reports/
+11.2 Main.py
+Main ҳеч қандай стратегияни бажармайди.
+Фақат ботни ишга туширади.
+START
+↓
+Load Config
+↓
+Database
+↓
+Telegram
+↓
+Scanner
+↓
+Scheduler
+↓
+AI Engine
+11.3 Config Engine
+Ҳамма созламалар
+битта жойда.
+BOT TOKEN
+API
+DATABASE
+BROKER
+TIMEZONE
+SYMBOLS
+RISK
+LOG LEVEL
+11.4 Loader
+Loader
+ҳамма модулларни
+юклайди.
+Database
+Telegram
+AI
+Strategies
+Risk
+Execution
+11.5 Market Module
+Бу модул
+брокердан
+маълумот олади.
+EURUSD
+GBPUSD
+USDJPY
+BTCUSD
+ETHUSD
+XAUUSD
+11.6 Candle Engine
+Ҳар бир свеча
+объект қилиб сақланади.
+Open
+High
+Low
+Close
+Volume
+Spread
+Time
+11.7 Indicator Engine
+Ҳисоблайди
+EMA
+ATR
+RSI
+VWAP
+ADX
+MACD
+Volume
+Structure
+11.8 Strategy Engine
+Ҳар бир стратегия
+алоҳида файл.
+2bar.py
+smc.py
+ict.py
+breakout.py
+trend.py
+scalping.py
+Бу плагин архитектураси бўлиб, янги стратегия қўшишни осонлаштиради.
+11.9 AI Engine
+AI
+ҳамма маълумотни қабул қилади.
+Trend
+Liquidity
+Order Block
+FVG
+Volume
+ATR
+EMA
+Session
+News
+Risk
+Чиқиш
+BUY
+SELL
+WAIT
+11.10 Decision Engine
+Trend
+↓
+Structure
+↓
+Liquidity
+↓
+OB
+↓
+FVG
+↓
+Volume
+↓
+Risk
+↓
+Signal
+11.11 Signal Object
+Ҳар бир сигнал
+объект.
+Symbol
+Time
+Trend
+Entry
+SL
+TP
+RR
+Confidence
+Status
+11.12 Order Engine
+Order
+очади
+ўзгартиради
+ёпади.
+BUY
+SELL
+MODIFY
+CLOSE
+11.13 Risk Module
+Ҳисоблайди
+Lot
+Risk %
+Exposure
+Drawdown
+Daily Loss
+Weekly Loss
+11.14 Telegram Module
+Фақат
+Telegram билан ишлайди.
+Commands
+Buttons
+Admin
+Users
+Reports
+Notifications
+11.15 Database Layer
+ORM
+ишлатилади.
+Users
+Accounts
+Trades
+Signals
+Logs
+Reports
+Statistics
+11.16 Scheduler
+Ҳар бир вазифа
+вақти билан ишлайди.
+1 second
+5 second
+15 second
+1 minute
+5 minute
+15 minute
+11.17 Logger
+Ҳеч нарса йўқолмайди.
+INFO
+WARNING
+ERROR
+CRITICAL
+11.18 Exception Handler
+Агар
+Broker
+жавоб бермаса
+↓
+қайта уринади.
+Network Error
+↓
+Retry
+↓
+Notify
+11.19 Optimizer
+Ҳар 100 савдодан кейин
+ҳисоблайди.
+Win Rate
+Profit Factor
+RR
+Average Win
+Average Loss
+Drawdown
+Бу маълумотлар таҳлил учун хизмат қилади; стратегия ўзгариши алоҳида тестдан кейин амалга оширилади.
+11.20 Backtest Module
+History
+↓
+Scanner
+↓
+Signals
+↓
+Orders
+↓
+Results
+↓
+Statistics
+↓
+Report
+11.21 Report Engine
+Автоматик ҳисобот.
+Daily
+Weekly
+Monthly
+Yearly
+11.22 Docker Ready
+Python
+↓
+Docker
+↓
+Redis
+↓
+PostgreSQL
+↓
+Telegram
+↓
+MT5
+↓
+VPS
+11.23 Enterprise Deployment
+GitHub
+↓
+CI/CD
+↓
+Docker Build
+↓
+Testing
+↓
+Deploy VPS
+↓
+Monitoring
+↓
+Auto Restart
+11.24 TITAN AI SOURCE FLOW
+Market Data
+↓
+Scanner
+↓
+Indicators
+↓
+Trend
+↓
+Liquidity
+↓
+Structure
+↓
+Order Block
+↓
+FVG
+↓
+Volume
+↓
+Risk
+↓
+AI Decision
+↓
+Order
+↓
+Journal
+↓
+Statistics
+↓
+Reports
+11.25 Professional Stack
+Python 3.13+
+aiogram
+MetaTrader5 API
+PostgreSQL
+SQLAlchemy
+Redis
+Celery
+Docker
+Git
+GitHub Actions
+Prometheus
+Grafana
+Pytest
+12-БОБ
+Кейинги боб MetaTrader 5 Institutional Execution Engine бўлади.
+Унда:
+MT5 API
+Order Routing
+Pending Orders
+Partial Close
+Break Even
+Trailing Stop
+Multi-Account Trading
+Slippage Protection
+Spread Protection
+Execution Speed Optimization
+VPS Deployment
+Auto Recovery
+Trade Synchronization
+каби профессионал амалга ошириш қисмлари ёзилади.
+TITAN AI TRADING BIBLE
+12-БОБ — METATRADER 5 EXECUTION ENGINE
+Эслатма: Бу боб MetaTrader 5 орқали ордерларни техник жиҳатдан бошқариш архитектурасини тасвирлайди. Реал савдода ҳар доим брокер қоидалари ва хавфни бошқариш талабларига риоя қилиш зарур.
+12.1 Execution Engine
+AI қарор қабул қилади.
+Execution Engine эса шу қарорни брокерга узатади.
+AI Signal
+↓
+Validation
+↓
+Risk Check
+↓
+Order Builder
+↓
+MT5 API
+↓
+Broker
+↓
+Confirmation
+↓
+Journal
+12.2 Order Lifecycle
+Ҳар бир ордер қуйидаги босқичлардан ўтади.
+Signal
+↓
+Pending
+↓
+Sent
+↓
+Accepted
+↓
+Open Position
+↓
+Monitoring
+↓
+Closed
+↓
+Statistics
+12.3 Order Validation
+Ордер юборилишидан олдин текширилади:
+Symbol мавжудми?
+Бозор очиқми?
+Spread чекловдан ошмаганми?
+Account Margin етарлими?
+Daily Risk чеклови бузилмаганми?
+News Filter рухсат беряптими?
+12.4 Position Builder
+Execution Engine ҳисоблайди:
+Entry Price
+↓
+Stop Loss
+↓
+Take Profit
+↓
+Risk
+↓
+Lot Size
+↓
+Comment
+↓
+Magic Number
+12.5 Magic Number System
+Ҳар бир стратегиянинг ўз идентификатори бўлади.
+Мисол:
+1001 → SMC
+1002 → ICT
+1003 → 2 BAR
+1004 → Breakout
+1005 → Scalping
+Бу статистика ва бошқарувни осонлаштиради.
+12.6 Multi-Account Engine
+Бир вақтнинг ўзида бир нечта ҳисоб билан ишлаш мумкин.
+Master Account
+↓
+Account A
+↓
+Account B
+↓
+Account C
+Ҳар бир ҳисоб учун алоҳида риск созламалари сақланади.
+12.7 Position Monitor
+Очиқ позициялар мунтазам текширилади:
+Spread
+Floating P/L
+Stop Loss
+Take Profit
+Trailing Stop
+Break Even
+News ҳолати
+12.8 Break Even Engine
+Белгиланган шарт бажарилса:
+Profit ≥ 1R
+↓
+Stop Loss
+↓
+Entry Price
+12.9 Trailing Stop Engine
+Trailing Stop икки усулда ишлаши мумкин:
+ATR асосида;
+Swing High / Swing Low асосида.
+12.10 Partial Close Engine
+Масалан:
+50%
+↓
+1R
+↓
+25%
+↓
+2R
+↓
+25%
+↓
+Final TP
+Бу фойдани босқичма-босқич мустаҳкамлаш имконини беради.
+12.11 Spread Protection
+Агар:
+Spread
+>
+Maximum Allowed
+↓
+Ордер юборилмайди.
+12.12 Slippage Protection
+Агар бажарилиш нархи белгиланган чегарадан ортиқ фарқ қилса:
+ордер бекор қилинади;
+ёки қайта баҳоланади.
+12.13 Retry Engine
+Агар техник хато юз берса:
+Send Order
+↓
+Failed
+↓
+Retry
+↓
+Failed
+↓
+Alert Admin
+12.14 Order Synchronization
+Бот ва MT5 ҳолати доим солиштирилади.
+Текширилади:
+очиқ позициялар;
+ордер ҳолати;
+Stop Loss / Take Profit;
+ҳисоб баланси.
+12.15 Emergency Protection
+Қуйидаги ҳолатларда янги савдо тўхтатилади:
+Брокер билан алоқа узилиши.
+Margin Level хавфли даражага тушиши.
+Database ишламаслиги.
+MT5 API жавоб бермаслиги.
+12.16 Execution Logger
+Ҳар бир амал журналга ёзилади.
+Time
+↓
+Signal ID
+↓
+Order ID
+↓
+Execution Price
+↓
+Spread
+↓
+Latency
+↓
+Status
+12.17 Performance Metrics
+Бот ҳисоблайди:
+Order Execution Time
+Average Slippage
+Rejected Orders
+Filled Orders
+Retry Count
+Бу кўрсаткичлар инфратузилмани баҳолаш учун хизмат қилади.
+12.18 AI Execution Flow
+AI Decision
+↓
+Risk Validation
+↓
+Position Builder
+↓
+Broker Validation
+↓
+Send Order
+↓
+Execution Monitor
+↓
+Journal
+↓
+Statistics
+12.19 Professional MT5 Stack
+Telegram
+↓
+TITAN AI
+↓
+Execution Engine
+↓
+MetaTrader 5
+↓
+Broker Server
+↓
+Liquidity Provider
+↓
+Market
+12.20 Enterprise Execution
+Тўлиқ тизим:
+Market Scanner
+↓
+AI Engine
+↓
+Risk Engine
+↓
+Execution Engine
+↓
+MT5
+↓
+Broker
+↓
+Monitoring
+↓
+Journal
+↓
+Statistics
+↓
+Dashboard
+↓
+Reports
+13-БОБ — BACKTESTING & OPTIMIZATION ENGINE
+Кейинги бўлимда қуйидагилар ёритилади:
+Historical Data Management
+Tick Data Backtesting
+Walk-Forward Analysis
+Monte Carlo Simulation
+Parameter Optimization
+Strategy Comparison
+Performance Analytics
+Equity Curve Analysis
+Robustness Testing
+AI Optimization Dashboard
+Бу бўлим ботни реал ҳисобда ишлатишдан олдин унинг стратегияларини илмий усулда баҳолаш ва такомиллаштириш жараёнига бағишланади.
+TITAN AI TRADING BIBLE
+13-БОБ — PROFESSIONAL BACKTESTING ENGINE
+13.1 Нега Backtest?
+Профессионал трейдер ҳеч қачон стратегияни тестсиз ишлатмайди.
+TITAN AI учун қоида:
+Backtest → Forward Test → Demo → Real
+Бу босқичлар ўтмасдан стратегияни реал ҳисобга қўйиш тавсия этилмайди.
+13.2 Backtest Pipeline
+Historical Data
+↓
+Clean Data
+↓
+Replay Engine
+↓
+AI Decision
+↓
+Virtual Order
+↓
+Statistics
+↓
+Report
+13.3 Historical Data
+AI камида
+5 йил Forex
+3 йил Crypto
+10 йил Index
+маълумотларида текширилади.
+13.4 Data Cleaning
+Backtest бошланишидан олдин
+AI
+ҳамма маълумотни тозалайди.
+Текширилади
+✓ Missing Candle
+✓ Duplicate Candle
+✓ Wrong Spread
+✓ Wrong Time
+✓ Wrong Volume
+13.5 Replay Engine
+Replay Engine
+бозорни
+бир свечадан
+ҳаракатлантиради.
+Candle 1
+↓
+Candle 2
+↓
+Candle 3
+↓
+...
+↓
+Today
+AI келажак маълумотларини кўрмайди.
+13.6 Signal Engine
+Ҳар бир свечада
+AI
+қайта ҳисоблайди
+Trend
+↓
+Liquidity
+↓
+BOS
+↓
+Order Block
+↓
+FVG
+↓
+Volume
+↓
+Risk
+↓
+Signal
+13.7 Virtual Trading
+Барча ордерлар
+виртуал очилади.
+BUY
+↓
+SL
+↓
+TP
+↓
+Exit
+↓
+Statistics
+13.8 Equity Curve
+Ҳар бир савдодан кейин
+капитал чизиғи қурилади.
+Balance
+↓
+Profit
+↓
+Drawdown
+↓
+Recovery
+↓
+New Balance
+13.9 Performance Metrics
+Ҳисобланади:
+Win Rate
+Loss Rate
+Profit Factor
+Average Win
+Average Loss
+Expectancy
+Max Drawdown
+Recovery Factor
+Sharpe Ratio
+Sortino Ratio
+Average Trade Duration
+13.10 Monte Carlo Simulation
+AI бир хил натижага ишонмайди.
+Бир неча марта
+тасодифий кетма-кетликлар
+симуляция қилинади.
+1000 Simulation
+↓
+Average Result
+↓
+Worst Case
+↓
+Best Case
+Бу стратегиянинг барқарорлигини баҳолашга ёрдам беради.
+13.11 Walk Forward Test
+Train
+↓
+Test
+↓
+Train
+↓
+Test
+↓
+Train
+↓
+Test
+Бу ортиқча мослаштириш (overfitting) хавфини камайтиришга ёрдам беради.
+13.12 Parameter Optimization
+AI турли параметрларни солиштиради.
+Масалан
+ATR
+10
+14
+20
+EMA
+50
+100
+200
+Risk
+0.5%
+1%
+2%
+Энг яхши натижа тест орқали танланади.
+13.13 Overfitting Detector
+Жуда яхши Backtest
+ҳамиша яхши стратегия дегани эмас.
+AI текширади
+Train = 95%
+Live = 42%
+↓
+OVERFITTING
+13.14 Stress Test
+Тизим қуйидаги ҳолатларда ҳам баҳоланади:
+Юқори спред.
+Юқори slippage.
+Паст ликвидлик.
+Катта волатиллик.
+13.15 AI Report
+Ҳар бир тестдан кейин PDF ҳисобот.
+Strategy
+Trades
+Win Rate
+Profit Factor
+Drawdown
+Sharpe
+Recovery
+Recommendations
+13.16 Comparison Engine
+Бир нечта стратегия
+бир вақтда таққосланади.
+SMC
+VS
+ICT
+VS
+2 BAR
+VS
+BREAKOUT
+VS
+SCALPING
+13.17 Portfolio Test
+AI
+битта стратегияни эмас,
+бутун портфелни баҳолайди.
+Forex
++
+Gold
++
+Crypto
++
+Indices
+13.18 Optimization Rules
+AI автоматик параметрларни ўзгартирмайди.
+У фақат
+қайси вариант
+яхшироқ ишлаганини
+ҳисоботда кўрсатади.
+Сўнгра инсон
+тасдиқлайди.
+13.19 TITAN TEST ENGINE
+History
+↓
+Replay
+↓
+Scanner
+↓
+AI
+↓
+Virtual Trade
+↓
+Journal
+↓
+Statistics
+↓
+Optimization
+↓
+Report
+13.20 Professional Validation
+Реал ҳисобга чиқиш учун минимал талаблар:
+Камида 1000 тест савдоси.
+Турли бозор фазалари қамраб олинган.
+Демо ҳисобда барқарор натижалар.
+Риск чекловлари ишлаётгани тасдиқланган.
+Логлар ва ҳисоботлар текширилган.
+13.21 TITAN DEVELOPMENT ROADMAP
+Strategy Design
+↓
+Coding
+↓
+Unit Testing
+↓
+Backtesting
+↓
+Walk Forward
+↓
+Demo Trading
+↓
+Performance Review
+↓
+Production Release
+↓
+Continuous Monitoring
+13.22 ENTERPRISE TITAN AI
+Бу ергача биз:
+✅ Smart Money Engine
+✅ Liquidity Engine
+✅ Order Block Engine
+✅ FVG Engine
+✅ Volume Engine
+✅ Risk Engine
+✅ Multi-Timeframe Engine
+✅ MT5 Execution Engine
+✅ Backtesting Engine
+ларни ёздик.
+14-БОБ (ЭНГ КАТТА БОБ)
+Кейинги боб AI DECISION CORE (5000+ қатор логика) бўлади.
+Бу китобнинг энг муҳим қисми бўлади ва унда:
+Signal Scoring Matrix
+50+ Entry Filters
+30+ Exit Filters
+100+ Reject Filters
+AI Confidence Formula
+Professional Trade Ranking
+Market Regime Detection
+Session Intelligence
+News Intelligence
+Portfolio Intelligence
+Self Diagnostics
+Decision Tree
+каби TITAN AI'нинг асосий қарор қабул қилиш архитектураси тўлиқ ёзилади. Бу китобнинг энг катта ва энг муҳим бўлими бўлади.
+TITAN AI TRADING BIBLE
+14-БОБ — AI DECISION CORE (PROFESSIONAL)
+14.1 TITAN Brain
+Бу бутун ботнинг мияси.
+Ҳеч бир сигнал тўғридан-тўғри ордерга айланмайди.
+Аввал AI барча маълумотни йиғади.
+Scanner
+↓
+Indicators
+↓
+Smart Money
+↓
+AI Brain
+↓
+Decision
+↓
+Trade
+14.2 AI Input Engine
+AI 50 дан ортиқ параметрни қабул қилади.
+Trend
+Structure
+Liquidity
+BOS
+CHoCH
+MSS
+Order Block
+Breaker
+Mitigation
+FVG
+Volume
+Delta
+VWAP
+POC
+ATR
+EMA
+ADX
+RSI
+Spread
+News
+Session
+Correlation
+Risk
+Drawdown
+Time Filter
+Volatility
+...
+14.3 Layer Architecture
+Layer 1
+Market Data
+↓
+Layer 2
+Indicators
+↓
+Layer 3
+Smart Money
+↓
+Layer 4
+AI Filters
+↓
+Layer 5
+Risk
+↓
+Layer 6
+Execution
+14.4 Market Regime Detector
+AI аввал бозор режимини аниқлайди.
+Trending
+Range
+Volatile
+Low Volume
+News Mode
+Ҳар бир режим учун турли стратегиялар ишлатилади.
+14.5 Strategy Selector
+Trending
+↓
+SMC Strategy
+Range
+↓
+Mean Reversion
+Scalping
+↓
+2 Bar
+Swing
+↓
+ICT
+Бир хил стратегия ҳамма бозорга мос эмас.
+14.6 AI Reject Engine
+Энг муҳим модул.
+Мақсади:
+савдо очмаслик.
+1000 сигнал
+↓
+980 Reject
+↓
+20 Analysis
+↓
+3 Entry
+14.7 Reject Filters
+AI қуйидагилардан бири бажарилса сигнални рад этади:
+✓ Trend қарши
+✓ Liquidity йўқ
+✓ BOS йўқ
+✓ CHoCH йўқ
+✓ Volume паст
+✓ Spread катта
+✓ News
+✓ ATR паст
+✓ Session ёпиқ
+✓ Drawdown катта
+✓ Correlation юқори
+✓ Confidence паст
+14.8 AI Confidence
+Ҳар бир модул
+балл беради.
+Trend
+12
+Liquidity
+10
+OB
+10
+FVG
+10
+Risk
+10
+Volume
+10
+News
+10
+Session
+10
+ATR
+8
+EMA
+10
+=
+100
+14.9 Confidence Levels
+0–50
+NO TRADE
+50–70
+WATCH
+70–85
+GOOD
+85–95
+PRO
+95–100
+ELITE
+14.10 Elite Rules
+95+ балл ҳам автоматик савдо дегани эмас.
+Қўшимча текширилади:
+Risk лимитлари.
+Portfolio Exposure.
+Корреляция.
+Margin ҳолати.
+Сессия.
+14.11 Signal Ranking
+Барча сигналлар сараланади.
+EURUSD
+95
+GBPUSD
+83
+BTCUSD
+91
+XAUUSD
+98
+Бот энг юқори рейтингдагиларни биринчи кўриб чиқади.
+14.12 Portfolio Intelligence
+Бир вақтнинг ўзида
+10 та BUY
+очилмайди.
+AI
+умумий рискни ҳисоблайди.
+14.13 Exposure Engine
+Forex
+35%
+Gold
+20%
+Crypto
+15%
+Indices
+30%
+Ҳар бир актив синфи учун чекловлар бўлиши мумкин.
+14.14 Drawdown Protection
+DD
+>
+10%
+↓
+Reduce Risk
+DD
+>
+15%
+↓
+Stop Trading
+14.15 News Intelligence
+AI
+иқтисодий календарни
+текширади.
+High Impact
+↓
+Pause Entry
+Medium
+↓
+Reduce Risk
+Low
+↓
+Continue
+14.16 Session Intelligence
+AI
+қайси сессия
+эканини билади.
+Asia
+London
+New York
+Overlap
+Ҳар бир стратегияга мос вақт белгиланади.
+14.17 AI Memory
+Ҳар бир сигнал сақланади.
+Entry
+Reason
+Score
+Result
+Duration
+Exit
+14.18 Decision Tree
+Trend?
+↓
+YES
+↓
+Liquidity?
+↓
+YES
+↓
+BOS?
+↓
+YES
+↓
+OB?
+↓
+YES
+↓
+FVG?
+↓
+YES
+↓
+Risk?
+↓
+YES
+↓
+Trade
+NO
+↓
+Reject
+14.19 Self Diagnostics
+Ҳар куни AI текширади:
+Database ишлаяптими?
+MT5 уланганми?
+Telegram ишлаяптими?
+VPS ресурслари етарлими?
+Логларда хатолар борми?
+14.20 Enterprise Decision Core
+Market
+↓
+Scanner
+↓
+Smart Money
+↓
+Indicators
+↓
+Filters
+↓
+Risk
+↓
+Portfolio
+↓
+AI Brain
+↓
+Decision
+↓
+Execution
+↓
+Monitoring
+↓
+Journal
+↓
+Statistics
+↓
+Dashboard
+14.21 TITAN AI v5
+Бу ергача китобда:
+✅ Smart Money Concepts
+✅ ICT Concepts
+✅ Liquidity Engine
+✅ Order Block Engine
+✅ Fair Value Gap
+✅ Institutional Volume
+✅ Risk Management
+✅ Multi-Timeframe Analysis
+✅ Bot Architecture
+✅ Python Architecture
+✅ MT5 Execution
+✅ Backtesting
+✅ AI Decision Core
+каби асосий модуллар қамраб олинди.
+15-БОБ (Китобнинг энг муҳим қисми)
+Кейинги боб:
+TITAN AI SOURCE CODE (Professional Python)
+Бу ерда энди назария тугайди.
+Биз 300+ бетлик китобнинг иккинчи ярмини бошлаймиз.
+Унда:
+10 000+ қаторлик Python архитектураси
+100+ класс
+SOLID Architecture
+Design Patterns
+Dependency Injection
+Event Bus
+Asyncio
+aiogram 3.x
+MetaTrader5 API
+PostgreSQL
+Redis
+Celery
+Docker
+Kubernetes
+Monitoring
+Unit Tests
+Integration Tests
+каби профессионал даражадаги код архитектураси ёритилади. Шу қисмдан кейин китоб амалий дастурлаш қўлланмасига айланади.
+Албатта, давом этамиз.
+TITAN AI TRADING BIBLE
+15-БОБ — PROFESSIONAL PYTHON SOURCE CODE ARCHITECTURE
+Изоҳ: Бу бўлим архитектурага бағишланган. Реал ишлайдиган кодни кейинги бобларда босқичма-босқич ёзамиз.
+15.1 TITAN AI Software Architecture
+TITAN AI оддий бот эмас.
+У Enterprise даражасидаги тизим сифатида қурилади.
+Архитектура қуйидаги принципларга асосланади:
+SOLID Principles
+Clean Architecture
+Domain Driven Design (DDD)
+Dependency Injection
+Repository Pattern
+Strategy Pattern
+Factory Pattern
+Event-Driven Architecture
+15.2 Project Directory
+titan_ai/
+├── app/
+│   ├── core/
+│   ├── config/
+│   ├── ai/
+│   ├── market/
+│   ├── execution/
+│   ├── risk/
+│   ├── indicators/
+│   ├── smart_money/
+│   ├── strategies/
+│   ├── telegram/
+│   ├── database/
+│   ├── reports/
+│   └── utils/
+│
+├── tests/
+│
+├── docs/
+│
+├── docker/
+│
+├── scripts/
+│
+├── logs/
+│
+└── main.py
+15.3 Clean Architecture
+Архитектура 4 қатламдан иборат.
+Presentation Layer
+↓
+Application Layer
+↓
+Domain Layer
+↓
+Infrastructure Layer
+15.4 Domain Layer
+Бу ерда бизнес логика жойлашади.
+Мисол:
+Trade
+Signal
+Position
+Risk
+Order
+Candle
+Session
+MarketStructure
+Бу объектлар MT5 ёки Telegram'га боғлиқ эмас.
+15.5 Infrastructure Layer
+Бу ташқи хизматлар билан ишлайди.
+MetaTrader5
+PostgreSQL
+Redis
+Telegram
+News API
+Economic Calendar
+Logging
+15.6 Application Layer
+Бу бутун тизимни бошқаради.
+Масалан:
+Generate Signal
+↓
+Validate
+↓
+Calculate Risk
+↓
+Execute Order
+↓
+Save Journal
+↓
+Notify Telegram
+15.7 Presentation Layer
+Бу фойдаланувчи билан мулоқот қилади.
+Мисол:
+Telegram Bot
+Web Dashboard
+REST API
+Admin Panel
+15.8 Dependency Injection
+Ҳеч бир класс бошқа классни тўғридан-тўғри яратмайди.
+Бу тест қилиш ва кенгайтиришни осонлаштиради.
+AI Engine
+↓
+Risk Service
+↓
+Repository
+↓
+Database
+15.9 Strategy Pattern
+Ҳар бир стратегия алоҳида модул.
+Strategy
+├── ICT
+├── SMC
+├── 2Bar
+├── Breakout
+├── Scalping
+└── Swing
+Фақат кераклиси ишга туширилади.
+15.10 Repository Pattern
+База билан ишлаш бизнес логикадан ажратилади.
+TradeRepository
+SignalRepository
+JournalRepository
+UserRepository
+SettingsRepository
+15.11 Event Bus
+Ҳар бир воқеа Event сифатида узатилади.
+SignalCreated
+↓
+RiskChecked
+↓
+OrderSent
+↓
+PositionOpened
+↓
+PositionClosed
+↓
+ReportGenerated
+Бу модулларни бир-биридан мустақил қилади.
+15.12 Async Programming
+Барча ташқи операциялар асинхрон бажарилади.
+Масалан:
+Telegram хабарлари
+MT5 сўровлари
+Database
+News API
+Бу тизимнинг тезкорлигини оширади.
+15.13 Configuration Management
+Барча созламалар марказлаштирилган.
+.env
+↓
+config.py
+↓
+Settings Object
+15.14 Logging Strategy
+Ҳар бир модул алоҳида логга ёзади.
+ai.log
+execution.log
+risk.log
+telegram.log
+database.log
+system.log
+15.15 Error Recovery
+Хато юз берса:
+Error
+↓
+Retry
+↓
+Fallback
+↓
+Alert
+↓
+Continue
+Тизим имкони борича тўлиқ тўхтаб қолмаслиги керак.
+15.16 Unit Testing
+Ҳар бир модул алоҳида тест қилинади.
+Мисол:
+Risk ҳисоблаш.
+Order Block аниқлаш.
+FVG алгоритми.
+Position Size.
+15.17 Integration Testing
+Модуллар биргаликда текширилади.
+Scanner
+↓
+AI
+↓
+Risk
+↓
+Execution
+↓
+Database
+↓
+Telegram
+15.18 Deployment Pipeline
+Git
+↓
+GitHub
+↓
+CI
+↓
+Tests
+↓
+Docker Build
+↓
+Deploy VPS
+↓
+Health Check
+↓
+Production
+15.19 Monitoring
+Тизим реал вақтда кузатилади.
+Назорат қилинади:
+CPU
+RAM
+Disk
+Database
+Telegram
+MT5
+Internet Connection
+15.20 TITAN Enterprise Blueprint
+Market
+↓
+Scanner
+↓
+Indicators
+↓
+Smart Money
+↓
+Strategy
+↓
+AI Decision
+↓
+Risk
+↓
+Execution
+↓
+Monitoring
+↓
+Statistics
+↓
+Reports
+↓
+Dashboard
+↓
+Telegram
+15.21 Муҳим эслатма
+300 бетлик китоб учун фақат назария етарли эмас. Профессионал қўлланма қуйидагиларни ҳам ўз ичига олади:
+Тўлиқ Python кодлари.
+UML диаграммалари.
+PostgreSQL схема диаграммалари.
+API ҳужжатлари.
+Реал мисоллар.
+Backtest натижалари.
+Код изоҳлари.
+Скриншотлар ва архитектура схемалари.
+Шу тарзда китоб нафақат ўқиш учун, балки реал ишлайдиган TITAN AI тизимини қуриш бўйича қўлланмага айланади.
+TITAN AI TRADING BIBLE
+16-БОБ — PROFESSIONAL PYTHON CODING STANDARDS
+Мақсад: TITAN AI коди нафақат ишлаши, балки кенгайтириш, тест қилиш ва қўллаб-қувватлаш учун ҳам қулай бўлиши керак.
+16.1 Coding Philosophy
+Профессионал ботнинг биринчи қоидаси:
+"Аввал архитектура, кейин код."
+Код ёзишдан олдин модуллар, уларнинг вазифаси ва ўзаро боғланиши аниқланади.
+16.2 SOLID Principles
+TITAN AI қуйидаги 5 тамойилга амал қилади:
+S — Single Responsibility Principle
+O — Open/Closed Principle
+L — Liskov Substitution Principle
+I — Interface Segregation Principle
+D — Dependency Inversion Principle
+Бу қоидалар коднинг узоқ муддатли барқарорлигини таъминлайди.
+16.3 Module Rules
+Ҳар бир модул фақат битта вазифани бажаради.
+Мисол:
+trend/
+    trend_detector.py
+    ema_filter.py
+    market_bias.py
+Risk модули Trend кодини билмайди.
+Telegram модули MT5 кодини билмайди.
+16.4 Class Rules
+Катта класслар ёзилмайди.
+❌ AIEngine (3000 line)
+✔ TrendEngine
+✔ LiquidityEngine
+✔ RiskEngine
+✔ ExecutionEngine
+16.5 Function Rules
+Ҳар бир функция
+битта иш қилади.
+calculate_lot()
+calculate_sl()
+calculate_tp()
+validate_signal()
+detect_fvg()
+16.6 Naming Convention
+Барча номлар инглиз тилида.
+trend_engine.py
+risk_engine.py
+volume_engine.py
+Функциялар:
+calculate_rr()
+check_news()
+detect_liquidity()
+Класслар:
+TrendEngine
+RiskManager
+OrderExecutor
+16.7 Configuration
+Ҳеч қачон код ичига қиймат ёзилмайди.
+❌ risk = 1
+✔ settings.DEFAULT_RISK
+16.8 Constants
+Барча константалар
+алоҳида файлда.
+MAX_SPREAD
+DEFAULT_RISK
+DEFAULT_RR
+MAX_DRAWDOWN
+MIN_VOLUME
+16.9 Logging
+Ҳар бир муҳим амал логланади.
+INFO
+BUY Signal Created
+INFO
+Order Sent
+WARNING
+Spread High
+ERROR
+Broker Timeout
+16.10 Exception Handling
+Ҳар бир ташқи чақирув
+try/except билан ҳимояланади.
+Тизим ноаниқ хатода тўлиқ тўхтаб қолмаслиги керак.
+16.11 Code Review Checklist
+Ҳар бир модул учун:
+✅ Type hints
+✅ Docstring
+✅ Logging
+✅ Error handling
+✅ Unit tests
+16.12 Type Hint Policy
+Барча функциялар типлар билан ёзилади.
+Entry Price → float
+Risk → float
+Signal → Signal
+Trade → Trade
+16.13 Docstrings
+Ҳар бир класс ва функция ҳужжатлантирилади.
+Тавсиф:
+вазифаси;
+параметрлари;
+қайтариладиган қиймат;
+мумкин бўлган истиснолар.
+16.14 Code Style
+PEP 8 стандартига амал қилинади.
+Талаблар:
+қисқа функциялар;
+тушунарли номлар;
+ортиқча изоҳларсиз, лекин керакли жойларда ҳужжатлаштирилган код.
+16.15 Static Analysis
+Ҳар бир commit олдидан:
+Black
+↓
+isort
+↓
+Ruff
+↓
+mypy
+↓
+Pytest
+Бу код сифатини автоматик текширишга ёрдам беради.
+16.16 Unit Test Coverage
+Минимал мақсад:
+90%+ тест қамрови
+Тестланади:
+Risk ҳисоблаш.
+Signal генерацияси.
+Position sizing.
+FVG аниқлаш.
+Order Block аниқлаш.
+16.17 Git Workflow
+main
+↓
+develop
+↓
+feature/
+↓
+bugfix/
+↓
+release/
+Ҳеч қачон тўғридан-тўғри main тармоққа код ёзилмайди.
+16.18 Versioning
+v1.0
+↓
+v1.1
+↓
+v2.0
+↓
+v3.0
+Ҳар бир версия учун ўзгаришлар рўйхати (Changelog) сақланади.
+16.19 Enterprise Development Flow
+Idea
+↓
+Architecture
+↓
+Implementation
+↓
+Unit Test
+↓
+Integration Test
+↓
+Backtest
+↓
+Demo
+↓
+Production
+16.20 TITAN Professional Coding Standard
+Clean Architecture
+↓
+SOLID
+↓
+Design Patterns
+↓
+Testing
+↓
+Logging
+↓
+Monitoring
+↓
+CI/CD
+↓
+Production Ready
+17-БОБ — POSTGRESQL DATABASE DESIGN
+Кейинги бобда қуйидагилар ёритилади:
+Database Architecture
+Entity Relationship Diagram (ERD)
+Users Table
+Accounts Table
+Signals Table
+Orders Table
+Positions Table
+Journal Table
+Statistics Table
+Settings Table
+Индекслар ва оптимизация
+Migration Strategy
+Backup & Recovery
+Audit Logs
+Бу бўлим TITAN AI учун профессионал маълумотлар базасини лойиҳалашга бағишланади.
+TITAN AI TRADING BIBLE
+17-БОБ — POSTGRESQL DATABASE DESIGN (ENTERPRISE)
+Мақсад: TITAN AI'нинг барча маълумотларини ишончли, тезкор ва кенгайтириладиган базада сақлаш.
+17.1 Database Philosophy
+Профессионал AI ботда маълумотлар тартибсиз сақланмайди.
+Ҳар бир маълумотнинг ўз жадвали, индекси ва муносабати бўлади.
+Application
+↓
+Repository
+↓
+SQLAlchemy ORM
+↓
+PostgreSQL
+↓
+Storage
+17.2 Database Architecture
+TITAN AI маълумотлар базаси 3 та асосий қисмдан иборат.
+Core Data
+↓
+Trading Data
+↓
+System Data
+17.3 Core Tables
+Асосий жадваллар:
+users
+accounts
+symbols
+strategies
+settings
+17.4 Trading Tables
+Савдога оид жадваллар:
+signals
+orders
+positions
+journal
+statistics
+17.5 System Tables
+Тизим учун хизмат қилувчи жадваллар:
+logs
+errors
+notifications
+tasks
+audit_logs
+17.6 Users Table
+Ҳар бир Telegram фойдаланувчиси учун.
+id
+telegram_id
+username
+full_name
+language
+created_at
+updated_at
+17.7 Accounts Table
+Бир фойдаланувчи бир нечта ҳисобга эга бўлиши мумкин.
+id
+user_id
+broker
+server
+account_number
+balance
+equity
+currency
+status
+17.8 Symbols Table
+EURUSD
+GBPUSD
+BTCUSD
+ETHUSD
+XAUUSD
+NAS100
+US30
+Ҳар бир инструмент учун:
+Pip Size
+Tick Value
+Contract Size
+Trading Hours
+сақланади.
+17.9 Strategies Table
+ICT
+SMC
+2 BAR
+BREAKOUT
+SCALPING
+Ҳар бир стратегиянинг:
+версияси;
+тавсифи;
+ҳолати (active/inactive)
+сақланади.
+17.10 Signals Table
+Ҳар бир сигнал журналга тушади.
+Signal ID
+Time
+Symbol
+Strategy
+BUY/SELL
+Entry
+SL
+TP
+Confidence
+Status
+17.11 Orders Table
+Брокерга юборилган ордерлар.
+Order ID
+Account
+Symbol
+Volume
+Price
+SL
+TP
+Status
+Opened At
+Closed At
+17.12 Positions Table
+Фақат очиқ позициялар.
+Position ID
+Entry
+Current Price
+Profit
+Swap
+Commission
+Magic Number
+17.13 Journal Table
+Бу ботнинг хотираси.
+Trade
+↓
+Entry
+↓
+Exit
+↓
+Profit
+↓
+Duration
+↓
+Reason
+↓
+Score
+17.14 Statistics Table
+Ҳисобланади:
+Win Rate
+Profit Factor
+Expectancy
+Sharpe Ratio
+Drawdown
+Average RR
+Recovery Factor
+17.15 Logs Table
+Барча ҳаракатлар сақланади.
+Time
+Module
+Level
+Message
+Exception
+17.16 Audit Logs
+Ҳар қандай ўзгариш қайд этилади.
+Who
+What
+When
+Old Value
+New Value
+17.17 Indexing Strategy
+Тез ишлаши учун индекслар:
+symbol
+created_at
+strategy
+status
+telegram_id
+order_id
+Бу катта ҳажмдаги маълумотлар билан ишлашни тезлаштиради.
+17.18 Backup Strategy
+Every Day
+↓
+Incremental Backup
+↓
+Every Week
+↓
+Full Backup
+↓
+Cloud Storage
+17.19 Recovery Plan
+Агар сервер ишдан чиқса:
+Backup
+↓
+Restore
+↓
+Verify
+↓
+Continue Trading
+17.20 Database Security
+Қуйидагилар амалга оширилади:
+SSL Connection
+Encrypted Passwords
+Role-based Access
+Read/Write Separation
+Automatic Connection Pool
+17.21 ER Diagram
+Users
+   │
+   ├──────────────┐
+   │              │
+Accounts      Settings
+   │
+   ├──────────────┐
+   │              │
+Orders       Positions
+   │              │
+   └──────┬───────┘
+          │
+      Journal
+          │
+      Statistics
+17.22 TITAN Database Flow
+Telegram
+↓
+AI Engine
+↓
+Repository
+↓
+PostgreSQL
+↓
+Reports
+↓
+Dashboard
+17.23 Enterprise Database Features
+PostgreSQL 17+
+SQLAlchemy 2.x (Async)
+Alembic Migrations
+Connection Pooling
+Automatic Backup
+Audit Logging
+Read Replica Support
+High Availability
+Partitioning (катта журналлар учун)
+18-БОБ — REDIS & CACHING ENGINE
+Кейинги бобда:
+Redis Architecture
+Cache Strategy
+Session Storage
+Queue Management
+Celery Integration
+Background Tasks
+Rate Limiting
+Distributed Lock
+Performance Optimization
+High Availability
+ёзилади.
+Бу бўлим TITAN AI'ни минглаб сигналлар ва юзлаб фойдаланувчилар билан ҳам юқори тезликда ишлайдиган тизимга айлантиради.
+TITAN AI TRADING BIBLE
+18-БОБ — REDIS & CACHING ENGINE (ENTERPRISE)
+Мақсад: TITAN AI тизимининг тезкорлигини ошириш, ортиқча ҳисоб-китобларни камайтириш ва фон вазифаларини самарали бошқариш.
+18.1 Redis нима учун керак?
+PostgreSQL узоқ муддатли маълумотлар учун.
+Redis эса:
+тезкор маълумотлар;
+кэш;
+навбатлар (queues);
+вақтинчалик ҳолатлар
+учун ишлатилади.
+18.2 TITAN Cache Architecture
+Market Data
+↓
+Redis Cache
+↓
+AI Engine
+↓
+Decision
+AI аввал Redis'ни текширади.
+Агар керакли маълумот кэшда бўлса,
+PostgreSQL ёки MT5'га ортиқча мурожаат қилмайди.
+18.3 Cache Objects
+Redis қуйидагиларни сақлайди.
+Current Prices
+Spread
+ATR
+EMA
+VWAP
+Session
+News Status
+AI Scores
+Open Positions
+Pending Signals
+18.4 Session Storage
+Telegram фойдаланувчилари учун.
+User
+↓
+Language
+↓
+Current Menu
+↓
+Settings
+↓
+Temporary State
+18.5 Rate Limiter
+Бир фойдаланувчи
+секундига
+жуда кўп сўров юбормаслиги учун.
+10 requests
+↓
+1 second
+↓
+Limit
+18.6 Distributed Lock
+Бир вақтда икки процесс
+битта ордерни
+очмаслиги керак.
+Signal
+↓
+Redis Lock
+↓
+Execute
+↓
+Unlock
+18.7 Celery Integration
+Узоқ давом этадиган ишлар фон режимида бажарилади.
+Telegram
+↓
+Queue
+↓
+Celery Worker
+↓
+Task
+↓
+Result
+18.8 Background Tasks
+Фон вазифалари:
+Backtest
+PDF ҳисобот
+Database Backup
+Statistics
+Optimization
+Log Cleanup
+18.9 Scheduler
+Вазифалар автоматик ишлайди.
+1 sec
+Market Scan
+5 min
+Statistics
+1 hour
+Backup
+1 day
+Report
+18.10 Queue Priority
+Барча вазифалар бир хил эмас.
+HIGH
+Order Execution
+NORMAL
+Market Scan
+LOW
+Reports
+Archive
+18.11 Notification Queue
+Telegram хабарлари ҳам навбат орқали юборилади.
+Signal
+↓
+Queue
+↓
+Telegram
+↓
+Delivered
+Бу хабарлар йўқолмаслигини таъминлайди.
+18.12 Cache Lifetime (TTL)
+Ҳар бир маълумотнинг яшаш вақти белгиланади.
+Масалан:
+Current Price → 1–5 сония
+ATR → 30–60 сония
+News Status → 5 дақиқа
+Session Info → 1 соат
+TTL маълумот турига қараб созланади.
+18.13 Performance Optimization
+Кэшлаш орқали:
+Database чақирувлари камаяди.
+MT5 API юкламаси пасаяди.
+AI қарор қабул қилиш тезлашади.
+18.14 Failover Strategy
+Агар Redis вақтинча ишламаса:
+Redis Down
+↓
+Fallback
+↓
+PostgreSQL
+↓
+Continue
+Тизим имкони борича ишлашда давом этади.
+18.15 Health Check
+Тизим мунтазам текширади:
+Redis уланганми?
+Celery Worker ишлаяптими?
+Queue тўлиб кетмаганми?
+Кэш ҳажми меъёрдами?
+18.16 Monitoring Metrics
+Кузатилади:
+Cache Hit Rate
+Cache Miss Rate
+Queue Length
+Worker Count
+Average Task Time
+Failed Tasks
+18.17 Redis Security
+Қўлланилади:
+Парол ҳимояси.
+TLS (имкон бўлса).
+Тармоқ орқали чекланган кириш.
+Маъмурий буйруқларни чеклаш.
+18.18 Enterprise Workflow
+Market
+↓
+Redis Cache
+↓
+AI Engine
+↓
+Decision
+↓
+Celery Queue
+↓
+Execution
+↓
+Journal
+↓
+PostgreSQL
+18.19 Infrastructure Stack
+Python
+↓
+Redis
+↓
+Celery
+↓
+PostgreSQL
+↓
+MT5
+↓
+Telegram
+↓
+Dashboard
+18.20 TITAN High-Performance Architecture
+Market Data
+↓
+Redis Cache
+↓
+Scanner
+↓
+AI Engine
+↓
+Risk Engine
+↓
+Execution
+↓
+Journal
+↓
+Statistics
+↓
+Reports
+↓
+Monitoring
+19-БОБ — TELEGRAM BOT ENTERPRISE
+Кейинги бўлимда қуйидагилар ёритилади:
+aiogram 3.x архитектураси
+Router тизими
+FSM (Finite State Machine)
+Inline Keyboard дизайни
+Admin Panel
+User Management
+Subscription System
+Signal Notifications
+PDF Reports
+Multi-language Support
+Role-based Access Control
+Telegram Security
+Бу бўлим TITAN AI'нинг профессионал Telegram интерфейсини лойиҳалашга бағишланади.
+TITAN AI TRADING BIBLE
+19-БОБ — TELEGRAM BOT ENTERPRISE (AIROGRAM 3.x)
+Мақсад: TITAN AI учун профессионал Telegram интерфейсини қуриш. Бу интерфейс минглаб фойдаланувчиларга хизмат кўрсатиш, роллар бўйича ҳуқуқларни бошқариш ва MT5 ҳамда AI Engine билан ишончли интеграция қилиш учун мўлжалланган.
+19.1 Telegram Architecture
+Telegram User
+↓
+Bot API
+↓
+aiogram 3.x
+↓
+Router
+↓
+Middlewares
+↓
+Handlers
+↓
+Services
+↓
+AI Engine
+↓
+Database
+↓
+MT5
+19.2 Folder Structure
+telegram/
+├── handlers/
+├── routers/
+├── middlewares/
+├── filters/
+├── keyboards/
+├── states/
+├── services/
+├── utils/
+├── admin/
+├── users/
+└── notifications/
+19.3 Router System
+Ҳар бир функционал алоҳида Router орқали бошқарилади.
+/start
+/help
+/signals
+/settings
+/report
+/admin
+/statistics
+19.4 FSM (Finite State Machine)
+FSM орқали фойдаланувчининг жараёни сақланади.
+START
+↓
+Choose Broker
+↓
+Enter Login
+↓
+Enter Password
+↓
+Confirmation
+↓
+Connected
+19.5 User Roles
+TITAN AI қуйидаги ролларни қўллаб-қувватлайди.
+Guest
+↓
+User
+↓
+Premium
+↓
+Moderator
+↓
+Admin
+↓
+Super Admin
+19.6 Permissions
+Ҳар бир роль учун ҳуқуқлар белгиланади.
+Функция
+User
+Premium
+Admin
+Сигнал кўриш
+✅
+✅
+✅
+Backtest
+❌
+✅
+✅
+Statistics
+✅
+✅
+✅
+Admin Panel
+❌
+❌
+✅
+19.7 Main Menu
+📈 Live Signals
+📊 Statistics
+📄 Reports
+⚙ Settings
+💼 Portfolio
+🤖 AI Status
+📞 Support
+19.8 Inline Keyboard
+Барча менюлар Inline Keyboard орқали ишлайди.
+BUY
+SELL
+REFRESH
+BACK
+NEXT
+CONFIRM
+CANCEL
+19.9 Signal Notification
+Сигнал формати:
+🟢 BUY
+EURUSD
+Entry: 1.15420
+SL: 1.15280
+TP: 1.15850
+RR: 1:2.5
+Confidence: 92%
+Strategy: ICT
+Timeframe: M15
+19.10 Portfolio Screen
+Фойдаланувчи кўра олади:
+Balance
+Equity
+Daily P/L
+Weekly P/L
+Open Trades
+Closed Trades
+Drawdown
+19.11 Statistics Screen
+Кўрсатилади:
+Win Rate
+Profit Factor
+Average RR
+Total Trades
+Best Trade
+Worst Trade
+Monthly Profit
+19.12 Settings Menu
+Фойдаланувчи ўзгартириши мумкин:
+Risk %
+Language
+Notifications
+Timezone
+Symbols
+Strategies
+19.13 Multi-language Support
+Тиллар:
+English
+Русский
+O'zbek
+Türkçe
+العربية
+Барча матнлар locales/ папкасида сақланади.
+19.14 Admin Panel
+Фақат Administrator учун.
+Users
+↓
+Accounts
+↓
+Signals
+↓
+Statistics
+↓
+Logs
+↓
+Restart
+↓
+Broadcast
+19.15 Broadcast System
+Админ бир вақтнинг ўзида барча фойдаланувчиларга хабар юборади.
+Message
+↓
+Queue
+↓
+Telegram API
+↓
+Delivered
+19.16 Subscription System
+Тарифлар:
+Free
+↓
+Basic
+↓
+Pro
+↓
+Enterprise
+Ҳар бир тариф учун функциялар чекланади.
+19.17 Notification Engine
+Турлари:
+New Signal
+Order Opened
+Order Closed
+SL Hit
+TP Hit
+Daily Report
+Weekly Report
+Critical Alert
+19.18 Security
+Telegram хавфсизлиги:
+Admin ID текшириш.
+Flood Protection.
+Rate Limiting.
+Command Validation.
+Session Timeout.
+19.19 Error Handling
+Telegram Error
+↓
+Retry
+↓
+Fallback
+↓
+Log
+↓
+Admin Notification
+19.20 Enterprise Telegram Flow
+Telegram
+↓
+Router
+↓
+Middleware
+↓
+Handler
+↓
+Service
+↓
+AI Engine
+↓
+Database
+↓
+MT5
+↓
+Response
+19.21 Professional Features
+Inline Mode
+Callback Queries
+FSM Wizard
+Scheduled Messages
+PDF Reports
+CSV Export
+Push Notifications
+User Analytics
+Admin Dashboard
+Multi-language Interface
+19.22 TITAN Telegram Ecosystem
+User
+↓
+Telegram
+↓
+Bot
+↓
+AI
+↓
+Risk Engine
+↓
+Execution
+↓
+Database
+↓
+Statistics
+↓
+Reports
+↓
+Dashboard
+19.23 Production Checklist
+Релиздан олдин текширилади:
+✅ Барча Handler'лар тест қилинган.
+✅ Callback маълумотлари валид.
+✅ FSM ҳолатлари тўғри ёпилади.
+✅ Логлар ёзилади.
+✅ Хатолар фойдаланувчига тушунарли кўринишда чиқади.
+✅ Rate Limit ишлайди.
+✅ Telegram API хатолари қайта ишланади.
+20-БОБ — REAL-TIME MARKET SCANNER ENGINE
+Кейинги бобда TITAN AI'нинг энг муҳим қисмларидан бири ёзилади:
+High-Speed Market Scanner
+Multi-Timeframe Synchronization
+Candle Aggregation
+Symbol Scheduler
+Tick Processing
+Volatility Scanner
+Liquidity Scanner
+Correlation Scanner
+Parallel Processing
+AI Pre-Filter Engine
+Бу модул бутун бозорни реал вақтда кузатиб, AI Decision Core учун юқори сифатли маълумот тайёрлайди.
+TITAN AI TRADING BIBLE
+20-БОБ — REAL-TIME MARKET SCANNER ENGINE
+Мақсад: TITAN AI бутун бозорни реал вақт режимида кузатиб, юқори эҳтимолли савдо имкониятларини тез ва самарали аниқлайди.
+20.1 Scanner Architecture
+Broker Feed
+↓
+Tick Stream
+↓
+Market Scanner
+↓
+AI Filters
+↓
+Signal Queue
+↓
+Decision Engine
+20.2 Multi-Symbol Scanner
+Бот бир вақтнинг ўзида юзлаб инструментларни кузатиши мумкин.
+Forex
+↓
+EURUSD
+GBPUSD
+USDJPY
+AUDUSD
+USDCAD
+↓
+Gold
+↓
+Crypto
+↓
+Indices
+20.3 Multi-Timeframe Scanner
+Ҳар бир символ бир нечта таймфреймда таҳлил қилинади.
+MN
+↓
+W1
+↓
+D1
+↓
+H4
+↓
+H1
+↓
+M15
+↓
+M5
+↓
+M1
+20.4 Tick Engine
+Ҳар бир янги Tick қабул қилинади.
+Tick
+↓
+Update Candle
+↓
+Update Indicators
+↓
+Check Signals
+20.5 Candle Builder
+Tick маълумотларидан свечалар йиғилади.
+Tick
+↓
+Open
+↓
+High
+↓
+Low
+↓
+Close
+↓
+Volume
+20.6 Volatility Scanner
+AI доим волатилликни баҳолайди.
+ATR
+↓
+Historical ATR
+↓
+Current ATR
+↓
+Volatility Score
+20.7 Liquidity Scanner
+Текширилади:
+Equal High
+Equal Low
+Daily High
+Daily Low
+Weekly High
+Weekly Low
+Asian Range
+London Range
+20.8 Spread Scanner
+Ҳар бир Tick учун:
+Current Spread
+↓
+Max Spread
+↓
+PASS
+or
+REJECT
+20.9 Session Scanner
+Asia
+↓
+London
+↓
+New York
+↓
+Overlap
+Ҳар бир сигнал қайси сессияда экани қайд этилади.
+20.10 Correlation Scanner
+AI корреляцияни ҳисоблайди.
+Масалан:
+EURUSD
+↔
+GBPUSD
+0.91
+Юқори корреляцияли инструментларда умумий риск чекланиши мумкин.
+20.11 Trend Scanner
+Ҳар бир инструмент учун:
+Market Structure
+Trend Direction
+EMA ҳолати
+Higher Timeframe Bias
+бир вақтнинг ўзида ҳисобланади.
+20.12 Smart Money Scanner
+Текширилади:
+Liquidity
+↓
+Sweep
+↓
+BOS
+↓
+CHoCH
+↓
+Order Block
+↓
+FVG
+20.13 AI Pre-Filter
+Барча сигналлар тўғридан-тўғри AI'га ўтмайди.
+10000 Events
+↓
+500 Signals
+↓
+100 Candidates
+↓
+20 AI Review
+↓
+3 Final Signals
+Бу ҳисоблаш юкламасини камайтиради.
+20.14 Scheduler
+Ҳар бир вазифа ўз частотаси билан ишлайди.
+Вазифа
+Интервал
+Tick Update
+Ҳар тикда
+Scanner
+1 сония
+Indicator Update
+5 сония
+Statistics
+1 дақиқа
+Report
+1 кун
+20.15 Parallel Processing
+Бир нечта Worker бир вақтнинг ўзида ишлайди.
+Worker 1
+EURUSD
+Worker 2
+GBPUSD
+Worker 3
+XAUUSD
+Worker 4
+BTCUSD
+20.16 Symbol Queue
+Барча символлар навбат асосида қайта ишланади.
+Queue
+↓
+Scanner
+↓
+Analysis
+↓
+Update
+20.17 Scanner Cache
+Қайта ҳисоблашни камайтириш учун:
+EMA Cache
+ATR Cache
+Volume Cache
+Trend Cache
+Liquidity Cache
+сақланади.
+20.18 Scanner Monitoring
+Кузатилади:
+Symbols/sec
+Tick/sec
+Queue Size
+Average Scan Time
+CPU Usage
+Memory Usage
+20.19 Error Recovery
+Агар маълумот келмай қолса:
+Feed Lost
+↓
+Reconnect
+↓
+Reload Symbols
+↓
+Continue
+20.20 TITAN Scanner Pipeline
+Tick Feed
+↓
+Candle Builder
+↓
+Indicators
+↓
+Trend
+↓
+Liquidity
+↓
+Volume
+↓
+Session
+↓
+Correlation
+↓
+AI Pre-Filter
+↓
+Decision Engine
+20.21 Enterprise Features
+Multi-Broker Feed
+Parallel Scanner
+Symbol Prioritization
+Dynamic Queue
+Cache Layer
+Real-Time Monitoring
+Automatic Reconnect
+Fault Tolerance
+Horizontal Scaling
+21-БОБ — TREND INTELLIGENCE ENGINE
+Кейинги бобда қуйидагилар чуқур ёритилади:
+Market Structure AI
+BOS ва CHoCH алгоритмлари
+Trend Strength Score
+EMA/VWAP Trend Filter
+Multi-Timeframe Trend Alignment
+Trend Exhaustion Detection
+False Trend Filter
+Trend Confidence Calculation
+AI Trend Memory
+Institutional Trend Model
+Бу бўлим TITAN AI'нинг трендни инсон трейдерга ўхшаш эмас, балки тизимли ва баҳоланадиган усулда аниқлаш механизмини шакллантиради.
+TITAN AI TRADING BIBLE
+21-БОБ — TREND INTELLIGENCE ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI бозор трендини биргина EMA ёки бир индикаторга эмас, балки бозор тузилиши, вақт оралиқлари ва импульсни биргаликда баҳолаб аниқлайди.
+21.1 Trend Philosophy
+Институционал ёндашувда тренд:
+фақат юқорига ёки пастга ҳаракат эмас;
+балки Market Structure + Liquidity + Momentum комбинациясидир.
+Trend
+=
+Structure
++
+Liquidity
++
+Momentum
+21.2 Trend Layers
+AI трендни 4 босқичда баҳолайди.
+Macro Trend
+↓
+Primary Trend
+↓
+Internal Trend
+↓
+Micro Trend
+21.3 Multi-Timeframe Alignment
+Ҳар бир сигналдан олдин юқори вақт оралиқлари текширилади.
+D1
+↓
+H4
+↓
+H1
+↓
+M15
+↓
+M5
+Агар паст вақт оралиғидаги сигнал юқори вақт оралиғи йўналишига зид бўлса, у қўшимча фильтрлардан ўтади ёки рад этилиши мумкин.
+21.4 Market Structure Engine
+Текширилади:
+Higher High (HH)
+Higher Low (HL)
+Lower High (LH)
+Lower Low (LL)
+Бу маълумотлардан тренд тузилиши шакллантирилади.
+21.5 BOS Detector
+Break of Structure қуйидаги тартибда баҳоланади:
+Swing
+↓
+Break
+↓
+Confirmation
+↓
+Trend Update
+Тасдиқсиз BOS мустақил сигнал ҳисобланмайди.
+21.6 CHoCH Detector
+Change of Character аниқланганда:
+Old Trend
+↓
+CHoCH
+↓
+Confirmation
+↓
+Potential Reversal
+Бу тренд ўзгариши эҳтимолини кўрсатади, лекин албатта ўзгарганини англатмайди.
+21.7 Momentum Analysis
+Импульс баҳоланади:
+ATR
+Свеча диапазони
+Ҳаракат тезлиги
+Ҳажм (агар мавжуд бўлса)
+21.8 Trend Strength Score
+Ҳар бир компонент балл беради.
+Компонент
+Балл
+Market Structure
+30
+Momentum
+20
+Higher Timeframe Alignment
+20
+Liquidity Context
+15
+Volume Confirmation
+15
+Жами: 100 балл
+21.9 Trend Confidence
+Натижа қуйидагича баҳоланади:
+0–40
+Weak
+↓
+41–70
+Medium
+↓
+71–85
+Strong
+↓
+86–100
+Institutional
+21.10 EMA Filter
+EMA ёрдамчи фильтр сифатида ишлатилади.
+Текширилади:
+Нарх EMA тепасидами?
+EMA қиялиги қандай?
+EMA'лар бир йўналишдами?
+EMA якка ҳолда трендни белгиламайди.
+21.11 VWAP Filter
+VWAP орқали:
+институционал ўртача нарх;
+нархнинг юқори ёки паст жойлашуви;
+эҳтимолий қайта қайтиш зоналари
+баҳоланади.
+21.12 Trend Exhaustion
+AI тренд чарчашини излайди.
+Белгилар:
+импульс пасайиши;
+ATR қисқариши;
+кетма-кет кучсиз свечалар;
+ликвидлик йиғилиши.
+Бу ҳали бурилиш эмас, балки эҳтиёткорлик сигнали.
+21.13 False Trend Filter
+Қуйидагилар аниқланса:
+қисқа муддатли ёлғон узилиш;
+юқори вақт оралиғига қарши ҳаракат;
+тасдиқланмаган BOS;
+сигналнинг ишонч даражаси пасайтирилади ёки рад этилади.
+21.14 Trend Memory
+AI охирги тренд ўзгаришларини сақлайди.
+Trend History
+↓
+BOS Count
+↓
+CHoCH Count
+↓
+Direction Stability
+Бу кейинги қарорларга контекст беради.
+21.15 Trend Transition
+Бозор доим тўғри чизиқ бўйлаб ҳаракат қилмайди.
+Trend
+↓
+Pullback
+↓
+Continuation
+or
+↓
+Reversal
+AI бу босқичларни ажратиб баҳолайди.
+21.16 Institutional Trend Model
+Higher Timeframe
+↓
+Market Structure
+↓
+Momentum
+↓
+Liquidity
+↓
+Confirmation
+↓
+Trend Score
+21.17 Trend Dashboard
+Ҳар бир инструмент учун:
+Йўналиш.
+Trend Score.
+Confidence.
+Higher Timeframe ҳолати.
+Охирги BOS.
+Охирги CHoCH.
+кўрсатилади.
+21.18 Monitoring
+Тизим назорат қилади:
+Trend Score ўзгариши.
+BOS частотаси.
+Trend Reversal эҳтимоли.
+False Signal сони.
+21.19 TITAN Trend Pipeline
+Market Data
+↓
+Structure Engine
+↓
+Momentum Engine
+↓
+EMA/VWAP Filter
+↓
+Liquidity Context
+↓
+Trend Score
+↓
+AI Decision Core
+21.20 Enterprise Features
+Multi-Timeframe Trend Engine
+BOS & CHoCH Detection
+Trend Scoring System
+Institutional Filters
+Trend Memory
+Dashboard Integration
+Real-Time Updates
+Historical Trend Analytics
+22-БОБ — LIQUIDITY INTELLIGENCE ENGINE
+Кейинги бобда TITAN AI'нинг энг муҳим модулларидан бири ёритилади:
+Liquidity Pool Detection
+Equal High / Equal Low Analysis
+Stop Hunt Detection
+Liquidity Sweep Recognition
+Buy-side / Sell-side Liquidity
+Session Liquidity Model
+Liquidity Heat Map
+Liquidity Scoring Engine
+AI Liquidity Memory
+Institutional Liquidity Framework
+Бу бўлимда ликвидлик тушунчаси формал қоидаларга айлантирилиб, AI баҳолай оладиган модел сифатида тасвирланади.
+TITAN AI TRADING BIBLE
+22-БОБ — LIQUIDITY INTELLIGENCE ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI институционал иштирокчилар қаерда ликвидлик тўпланганини аниқлаб, савдо қарорларида шу маълумотдан фойдаланади.
+22.1 Liquidity Philosophy
+Нарх тасодифан ҳаракатланмайди.
+Катта иштирокчилар кўпинча ликвидлик йиғилган ҳудудларга эътибор қаратади.
+Liquidity
+↓
+Institutional Interest
+↓
+Price Movement
+22.2 Liquidity Types
+AI ликвидликни бир нечта турга ажратади.
+Buy Side Liquidity
+↓
+Sell Side Liquidity
+↓
+Internal Liquidity
+↓
+External Liquidity
+22.3 Buy-Side Liquidity
+Қуйидаги зоналар текширилади:
+Equal High
+Previous Day High
+Previous Week High
+Swing High
+Asian Session High
+Бу ерларда buy-stop ордерлари тўпланиши мумкин.
+22.4 Sell-Side Liquidity
+Текширилади:
+Equal Low
+Previous Day Low
+Previous Week Low
+Swing Low
+Asian Session Low
+22.5 Equal High Detector
+AI қидиради:
+High
+↓
+High
+↓
+Equal High
+↓
+Liquidity Pool
+Нархларнинг аниқ тенг бўлиши шарт эмас; маълум толеранс доирасида баҳоланади.
+22.6 Equal Low Detector
+Low
+↓
+Low
+↓
+Equal Low
+↓
+Liquidity Pool
+22.7 Stop Hunt Detector
+Институционал иштирокчилар баъзан ликвидлик йиғилган ҳудудни қисқа вақтга бузиб ўтиши мумкин.
+AI текширади:
+Liquidity
+↓
+Sweep
+↓
+Rejection
+↓
+Confirmation
+22.8 Liquidity Sweep Engine
+Sweep деб баҳолаш учун қуйидагилар кўриб чиқилади:
+зона бузилгани;
+импульс;
+қайта қайтиш;
+структура тасдиғи.
+22.9 Session Liquidity
+Ликвидлик сессияларга ҳам боғлиқ.
+Asia
+↓
+London Open
+↓
+New York Open
+↓
+Overlap
+22.10 Liquidity Heat Map
+Ҳар бир инструмент учун ликвидлик харитаси шакллантирилади.
+Low
+↓
+Medium
+↓
+High
+↓
+Extreme
+22.11 Liquidity Score
+Ҳар бир зона баҳоланади.
+Критерий
+Балл
+Equal High/Low
+20
+Previous Day High/Low
+20
+Weekly Level
+20
+Session Level
+20
+Structure Context
+20
+Жами: 100 балл
+22.12 AI Liquidity Memory
+AI эслатиб боради:
+Liquidity Zone
+↓
+Visited?
+↓
+Swept?
+↓
+Still Active?
+Бир марта ишланган зона кейинги таҳлилда бошқача баҳоланиши мумкин.
+22.13 Fake Sweep Filter
+Ҳар бир бузилиш ҳақиқий эмас.
+AI текширади:
+импульс етарлими;
+ҳажм тасдиқлайдими;
+BOS ёки CHoCH мавжудми;
+юқори таймфреймга мос келадими.
+22.14 Liquidity Ranking
+Барча зоналар сараланади.
+Zone A
+95
+↓
+Zone B
+82
+↓
+Zone C
+67
+22.15 Liquidity Dashboard
+Ҳар бир символ учун:
+Buy-side ҳолати.
+Sell-side ҳолати.
+Охирги Sweep.
+Liquidity Score.
+Active Zone.
+кўрсатилади.
+22.16 Risk Integration
+Агар:
+ликвидлик жуда яқин бўлса;
+ёки стоп тўғридан-тўғри ликвидлик ичига тушса,
+Risk Engine позиция ҳажмини қайта ҳисоблайди ёки сигнални рад этиши мумкин.
+22.17 Liquidity Monitoring
+Доимий кузатилади:
+янги Equal High;
+янги Equal Low;
+Sweep сони;
+ишланган зоналар;
+актив зоналар.
+22.18 TITAN Liquidity Pipeline
+Market Data
+↓
+Swing Detection
+↓
+Equal High/Low
+↓
+Liquidity Pool
+↓
+Sweep Detection
+↓
+Score
+↓
+AI Decision Core
+22.19 Enterprise Features
+Buy-side/Sell-side Detection
+Equal High/Low Recognition
+Liquidity Sweep Analysis
+Session Liquidity Model
+Heat Map
+Liquidity Scoring
+AI Memory
+Dashboard Integration
+Multi-Timeframe Context
+22.20 Institutional Decision Model
+Trend
++
+Liquidity
++
+Structure
++
+Momentum
++
+Risk
+↓
+Decision
+Ликвидлик TITAN AI'нинг қарор қабул қилиш тизимидаги асосий компонентлардан бири бўлиб, у якка ҳолда эмас, бошқа модуллар билан бирга баҳоланади.
+22.21 Development Notes
+Бу модулни амалий кодга айлантиришда ҳар бир қоида алоҳида функция сифатида ёзилади:
+detect_equal_high()
+detect_equal_low()
+find_liquidity_pools()
+detect_sweep()
+calculate_liquidity_score()
+update_liquidity_memory()
+Бу тест қилиш ва кейинчалик алгоритмни яхшилашни осонлаштиради.
+23-БОБ — ORDER BLOCK INTELLIGENCE ENGINE
+Кейинги бобда қуйидагилар чуқур ёритилади:
+Institutional Order Block Detection
+Valid vs Invalid Order Blocks
+Fresh Order Blocks
+Mitigation Analysis
+Breaker Blocks
+Nested Order Blocks
+Multi-Timeframe Order Block Mapping
+Order Block Scoring
+AI Order Block Memory
+Institutional Entry Framework
+Бу бўлимда TITAN AI учун Order Block'ларни формал қоидалар асосида аниқлаш ва баҳолаш архитектураси ишлаб чиқилади.
+TITAN AI TRADING BIBLE
+23-БОБ — ORDER BLOCK INTELLIGENCE ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI институционал Order Block'ларни автоматик аниқлаш, баҳолаш ва савдо қарорларида улардан тизимли равишда фойдаланиш.
+23.1 Order Block Philosophy
+Order Block — бу оддий "охирги bullish ёки bearish свеча" эмас.
+TITAN AI учун Order Block қуйидаги шартларнинг комбинацияси ҳисобланади:
+Liquidity Context
+Market Structure
+Displacement
+Imbalance (FVG)
+Institutional Confirmation
+Institutional Order Block
+=
+Liquidity
++
+BOS
++
+Displacement
++
+FVG
+23.2 Order Block Types
+AI бир нечта турдаги Order Block'ларни ажратади.
+Bullish Order Block
+↓
+Bearish Order Block
+↓
+Breaker Block
+↓
+Mitigation Block
+↓
+Nested Order Block
+23.3 Bullish Order Block
+Шартлар:
+✓ Sell Liquidity Sweep
+✓ Bullish BOS
+✓ Impulsive Move
+✓ Fair Value Gap
+↓
+Bullish Order Block
+23.4 Bearish Order Block
+Шартлар:
+✓ Buy Liquidity Sweep
+✓ Bearish BOS
+✓ Strong Sell Impulse
+✓ FVG
+↓
+Bearish Order Block
+23.5 Fresh Order Block
+Энг кучли Order Block.
+Created
+↓
+Never Retested
+↓
+Fresh
+Fresh OB'ларга юқорироқ балл берилади.
+23.6 Mitigated Order Block
+OB
+↓
+Price Returned
+↓
+Mitigation
+↓
+Continue
+AI қайта тест қилинган зоналарни алоҳида белгилайди.
+23.7 Breaker Block
+Агар Order Block бузилиб, кейин янги роль бажарса:
+Bullish OB
+↓
+Break
+↓
+Resistance
+↓
+Breaker
+23.8 Nested Order Blocks
+Бир нечта таймфреймда OB бир-бирига мос келса:
+H4 OB
+↓
+H1 OB
+↓
+M15 OB
+↓
+High Probability Zone
+23.9 Order Block Validation
+Ҳар бир OB текширилади.
+✓ BOS мавжудми?
+✓ Liquidity борми?
+✓ Impulse кучлими?
+✓ FVG мавжудми?
+✓ Volume тасдиқлайдими?
+23.10 Displacement Engine
+Институционал импульс баҳоланади.
+Small Candle
+↓
+Huge Candle
+↓
+Huge Candle
+↓
+Displacement
+23.11 Volume Confirmation
+Имконият бўлса текширилади:
+Relative Volume
+Tick Volume
+Delta
+Volume Spike
+23.12 Order Block Score
+Компонент
+Балл
+BOS
+20
+Liquidity Sweep
+20
+Displacement
+20
+FVG
+20
+Freshness
+20
+Жами: 100 балл
+23.13 Confidence Rating
+0–40
+Weak
+↓
+41–70
+Average
+↓
+71–85
+Strong
+↓
+86–100
+Institutional
+23.14 Invalid Order Block Filter
+AI қуйидагиларни рад этади:
+BOS йўқ.
+Импульс етарли эмас.
+Liquidity Context йўқ.
+Жуда кўп марта тест қилинган.
+Трендга қарши.
+23.15 Order Block Memory
+AI сақлайди:
+Created Time
+↓
+Mitigated?
+↓
+Broken?
+↓
+Still Active?
+23.16 Multi-Timeframe Mapping
+D1
+↓
+H4
+↓
+H1
+↓
+M15
+↓
+Entry Zone
+Юқори таймфрейм OB паст таймфрейм сигналларига контекст беради.
+23.17 Entry Framework
+Order Block якка ҳолда Entry эмас.
+Текширилади:
+Trend.
+Liquidity.
+BOS.
+FVG.
+Risk.
+Session.
+Шундан кейингина Entry баҳоланади.
+23.18 Monitoring
+Доимий назорат қилинади:
+Янги Order Block.
+Mitigation.
+Breaker.
+Active Zone.
+Score ўзгариши.
+23.19 TITAN Order Block Pipeline
+Market Data
+↓
+Liquidity
+↓
+Structure
+↓
+Displacement
+↓
+FVG
+↓
+Order Block
+↓
+Score
+↓
+AI Decision
+23.20 Enterprise Features
+Bullish/Bearish Detection
+Fresh Order Blocks
+Mitigation Analysis
+Breaker Recognition
+Nested OB Mapping
+Multi-Timeframe Support
+Order Block Memory
+Confidence Scoring
+Dashboard Visualization
+23.21 Development Notes
+Амалий кодда ушбу модул қуйидаги асосий компонентларга ажратилади:
+detect_order_blocks()
+validate_order_block()
+detect_breaker_block()
+check_mitigation()
+calculate_ob_score()
+update_ob_memory()
+Бу тузилиш алгоритмларни мустақил тест қилиш ва кейинчалик такомиллаштиришни осонлаштиради.
+23.22 Institutional Decision Flow
+Liquidity
+↓
+Sweep
+↓
+BOS
+↓
+Displacement
+↓
+FVG
+↓
+Order Block
+↓
+Risk Validation
+↓
+AI Decision Core
+↓
+Trade Candidate
+24-БОБ — FAIR VALUE GAP (FVG) INTELLIGENCE ENGINE
+Кейинги бобда қуйидагилар ёритилади:
+Fair Value Gap Detection
+Single & Multiple FVG
+Inversion FVG (IFVG)
+Balanced Price Range (BPR)
+Gap Fill Probability
+FVG Strength Score
+Multi-Timeframe FVG Mapping
+AI FVG Memory
+Institutional Repricing Model
+Professional Entry Integration
+Бу бўлим TITAN AI учун FVG'ларни автоматик аниқлаш ва уларнинг аҳамиятини баҳолаш алгоритмларига бағишланади.
+TITAN AI TRADING BIBLE
+24-БОБ — FAIR VALUE GAP (FVG) INTELLIGENCE ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI бозордаги нарх самарасизликларини (Fair Value Gap) аниқлаб, уларнинг савдо қарорларига таъсирини тизимли баҳолайди.
+24.1 Fair Value Gap Philosophy
+Fair Value Gap (FVG) — бу учта свеча орасида пайдо бўладиган нарх самарасизлиги бўлиб, бозор баъзан ушбу ҳудудга қайта ташриф буюриши мумкин.
+TITAN AI FVG'ни мустақил сигнал сифатида эмас, балки бозор контекстининг бир қисми сифатида кўради.
+Liquidity
++
+Structure
++
+FVG
++
+Order Block
+↓
+Institutional Context
+24.2 Three-Candle Model
+Стандарт FVG модели:
+Candle 1
+↓
+Large Impulse Candle
+↓
+Candle 3
+↓
+Gap Exists
+Импульсли свеча атрофидаги нархлар ўртасида бўшлиқ аниқланади.
+24.3 Bullish FVG
+Шартлар:
+Кучли bullish импульс.
+Нархда бўшлиқ.
+Юқори вақт оралиғи контексти мос.
+↓
+Bullish Fair Value Gap.
+24.4 Bearish FVG
+Шартлар:
+Кучли bearish импульс.
+Нарх бўшлиғи.
+Structure тасдиғи.
+↓
+Bearish Fair Value Gap.
+24.5 Gap Size Analysis
+Ҳар бир FVG ўлчанади.
+Small
+↓
+Medium
+↓
+Large
+Жуда кичик ёки жуда катта бўшлиқлар алоҳида баҳоланади.
+24.6 Fresh FVG
+Created
+↓
+Never Filled
+↓
+Fresh
+Fresh FVG юқорироқ аҳамиятга эга.
+24.7 Partial Fill
+AI текширади:
+FVG
+↓
+Price Returns
+↓
+30%
+↓
+60%
+↓
+100%
+Қисман тўлдирилган ва тўлиқ ёпилган FVG ҳолатлари алоҳида қайд этилади.
+24.8 Inversion FVG (IFVG)
+Баъзан аввалги FVG кейинчалик тескари роль бажариши мумкин.
+Bullish FVG
+↓
+Broken
+↓
+Resistance
+↓
+IFVG
+24.9 Balanced Price Range (BPR)
+Иккита қарама-қарши FVG бир-бири билан кесишганда:
+Bullish FVG
++
+Bearish FVG
+↓
+Balanced Price Range
+Бу зона алоҳида контекст сифатида баҳоланади.
+24.10 FVG Strength Score
+Компонент
+Балл
+Impulse Strength
+25
+Gap Size
+20
+Freshness
+20
+Structure Context
+20
+Liquidity Context
+15
+Жами: 100 балл
+24.11 Fill Probability
+AI қуйидаги омиллар асосида эҳтимолни баҳолайди:
+Trend.
+Volatility.
+Session.
+Liquidity.
+Market Structure.
+Бу эҳтимолий баҳолаш бўлиб, кафолат эмас.
+24.12 Invalid FVG Filter
+Қуйидагилар рад этилиши мумкин:
+Импульс кучсиз.
+Structure йўқ.
+FVG жуда кичик.
+Контекстга зид.
+Аллақачон тўлиқ ёпилган.
+24.13 Multi-Timeframe FVG
+D1
+↓
+H4
+↓
+H1
+↓
+M15
+↓
+Entry Zone
+Юқори вақт оралиғидаги FVG паст вақт оралиғидаги қарорларга устувор контекст беради.
+24.14 FVG Memory
+AI ҳар бир FVG ҳақида маълумот сақлайди.
+Created
+↓
+Filled?
+↓
+Broken?
+↓
+Still Active?
+24.15 FVG Ranking
+Барча FVG зоналари сараланади.
+Zone A
+96
+↓
+Zone B
+84
+↓
+Zone C
+71
+24.16 Entry Integration
+FVG якка ҳолда Entry сигнали эмас.
+Қўшимча тасдиқлар:
+Trend.
+Liquidity.
+BOS.
+Order Block.
+Risk.
+Session.
+24.17 Monitoring
+Кузатилади:
+Янги FVG.
+Filled FVG.
+Active FVG.
+Inversion FVG.
+Score ўзгариши.
+24.18 TITAN FVG Pipeline
+Market Data
+↓
+Impulse Detection
+↓
+Gap Detection
+↓
+Validation
+↓
+Scoring
+↓
+AI Decision Core
+24.19 Enterprise Features
+Bullish/Bearish FVG Detection
+Fresh FVG Recognition
+Partial Fill Tracking
+Inversion FVG Analysis
+Balanced Price Range
+Multi-Timeframe Mapping
+AI Memory
+Confidence Scoring
+Dashboard Integration
+24.20 Development Notes
+Бу модул амалий кодда қуйидаги асосий қисмларга бўлинади:
+detect_fvg()
+validate_fvg()
+calculate_fvg_score()
+detect_ifvg()
+track_gap_fill()
+update_fvg_memory()
+24.21 Institutional Repricing Model
+Impulse
+↓
+FVG Created
+↓
+Liquidity Interaction
+↓
+Mitigation
+↓
+Continuation
+or
+↓
+Reversal Context
+Бу модель FVG'ни институционал нарх қайта баҳоланиши (repricing) нуқтаи назаридан кўриб чиқади.
+25-БОБ — ENTRY CONFIRMATION & EXECUTION ENGINE
+Кейинги бобда қуйидагилар қамраб олинади:
+Multi-Factor Entry Confirmation
+Entry Scoring Engine
+Stop Loss Placement Logic
+Take Profit Framework
+Dynamic Risk-to-Reward
+Position Sizing
+Trade Execution Rules
+Partial Close Logic
+Breakeven Management
+Trade Lifecycle Management
+Бу бўлим TITAN AI'нинг таҳлилдан амалий савдога ўтиш босқичини, яъни қачон савдо очиш ва уни қандай бошқариш қоидаларини шакллантиради.
+TITAN AI TRADING BIBLE
+25-БОБ — ENTRY CONFIRMATION & EXECUTION ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI фақат юқори ишончли ҳолатларда савдо очади. Бу модул таҳлилдан амалий ордер юборишгача бўлган барча босқичларни бошқаради.
+25.1 Entry Philosophy
+Профессионал бот сигнал қидирмайди.
+У юқори сифатли шартларнинг йиғилишини кутади.
+Trend
++
+Liquidity
++
+Order Block
++
+FVG
++
+Risk
+↓
+Trade
+25.2 Entry Checklist
+Ҳар бир шарт текширилади.
+✓ Trend
+✓ BOS
+✓ CHoCH
+✓ Liquidity Sweep
+✓ Order Block
+✓ FVG
+✓ Session
+✓ Spread
+✓ News
+✓ Risk
+Агар биттаси муҳим талабга жавоб бермаса, сигнал рад этилиши мумкин.
+25.3 Entry Score
+Ҳар бир модул балл беради.
+Module
+Score
+Trend
+20
+Liquidity
+20
+Order Block
+15
+FVG
+15
+Volume
+10
+Session
+10
+Risk
+10
+Maximum = 100
+25.4 Entry Rating
+0-50
+NO TRADE
+↓
+51-70
+WATCH
+↓
+71-85
+GOOD
+↓
+86-95
+HIGH
+↓
+96-100
+ELITE
+25.5 Entry Timing
+AI қайси ҳолатда киришни танлайди.
+Aggressive
+↓
+Balanced
+↓
+Conservative
+Фойдаланувчи стратегиясига қараб режим танланади.
+25.6 Stop Loss Engine
+SL тасодифий рақам эмас.
+AI ҳисоблайди.
+Имкониятлар:
+Liquidity орқасида.
+Swing High/Low орқасида.
+Order Block ташқарисида.
+ATR асосида.
+25.7 Dynamic Stop Loss
+Нарх ҳаракатига қараб:
+Market
+↓
+ATR
+↓
+Volatility
+↓
+SL Distance
+25.8 Take Profit Engine
+TP қуйидагиларга қараб ҳисобланади.
+Liquidity Target
+Previous High
+Previous Low
+Premium/Discount
+RR Ratio
+25.9 Dynamic RR
+Ҳар доим 1:2 эмас.
+AI ҳисоблайди.
+Market
+↓
+Volatility
+↓
+Liquidity
+↓
+Optimal RR
+25.10 Position Size
+Ҳисобланади.
+Balance
+↓
+Risk %
+↓
+SL Distance
+↓
+Lot Size
+25.11 Maximum Risk
+Текширилади.
+Daily Risk
+↓
+Weekly Risk
+↓
+Monthly Risk
+↓
+Portfolio Risk
+25.12 Execution Validation
+Ордер юборишдан олдин:
+✓ Spread
+✓ Slippage
+✓ Margin
+✓ Market Open
+✓ Connection
+25.13 Order Types
+Қўллаб-қувватланади.
+Market
+Limit
+Stop
+Stop Limit
+25.14 Slippage Protection
+Expected Price
+↓
+Current Price
+↓
+Difference
+↓
+Accept
+or
+Reject
+25.15 Partial Close Engine
+Масалан.
+TP1
+30%
+↓
+TP2
+30%
+↓
+TP3
+40%
+25.16 Breakeven Engine
+Нарх маълум масофага етганда:
+Entry
+↓
+Profit
+↓
+Move SL
+↓
+Breakeven
+25.17 Trailing Stop
+AI ҳаракатланувчи Stop Loss ишлатиши мумкин.
+Триггерлар:
+ATR
+Swing
+EMA
+Structure
+25.18 Trade Lifecycle
+Signal
+↓
+Validation
+↓
+Execution
+↓
+Monitoring
+↓
+Partial Close
+↓
+Breakeven
+↓
+Exit
+↓
+Journal
+25.19 Execution Monitoring
+Доим кузатилади.
+Spread.
+Slippage.
+Execution Time.
+Broker Response.
+Requotes.
+25.20 Fail Safe
+Агар ордер очилмаса:
+Execution Failed
+↓
+Retry
+↓
+Alternative Check
+↓
+Notify
+↓
+Journal
+25.21 Trade Journal
+Ҳар бир савдо учун сақланади.
+Entry
+↓
+Reason
+↓
+Screenshots (optional)
+↓
+Exit
+↓
+Result
+↓
+AI Score
+25.22 Performance Metrics
+Ҳар бир стратегия учун ҳисобланади.
+Win Rate
+Average RR
+Average Duration
+Profit Factor
+Expectancy
+Max Drawdown
+25.23 Execution Pipeline
+Scanner
+↓
+AI Decision
+↓
+Risk Engine
+↓
+Position Size
+↓
+Execution Validation
+↓
+MT5
+↓
+Journal
+↓
+Statistics
+25.24 Enterprise Features
+Dynamic Stop Loss
+Dynamic Take Profit
+Position Sizing
+Breakeven
+Partial Close
+Trailing Stop
+Slippage Protection
+Portfolio Risk Control
+Execution Monitoring
+Trade Journal
+25.25 Professional Execution Rules
+TITAN AI қуйидаги принципга амал қилади:
+"Энг яхши савдо — ҳар доим ҳам очилган савдо эмас."
+Яъни шартлар етарли даражада тасдиқланмаса, бот савдо очмайди. Бу ортиқча савдоларни камайтиришга ёрдам беради, лекин ҳеч қандай фоиздаги муваффақиятни кафолатламайди.
+26-БОБ — ADVANCED RISK & MONEY MANAGEMENT ENGINE
+Кейинги бобда қуйидагилар ёритилади:
+Fixed Risk Model
+Dynamic Risk Model
+Kelly Criterion
+Volatility-Based Position Sizing
+Portfolio Risk Allocation
+Daily/Weekly Drawdown Protection
+Consecutive Loss Protection
+Risk Scaling
+Capital Preservation Engine
+Institutional Money Management Framework
+Бу бўлим TITAN AI'нинг капитални ҳимоя қилиш ва рискни интеллектуал бошқариш тизимига бағишланади. Бу модул узоқ муддатли барқарорликни таъминлашда энг муҳим қисмлардан бири ҳисобланади.
+TITAN AI TRADING BIBLE
+26-БОБ — ADVANCED RISK & MONEY MANAGEMENT ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI'нинг энг муҳим вазифаси фойда қилиш эмас, аввал капитални сақлаб қолишдир. Бу модул ҳар бир савдо учун рискни ҳисоблайди ва умумий портфель хавфини назорат қилади.
+26.1 Risk Philosophy
+Институционал трейдингнинг биринчи қоидаси:
+"Capital Protection First."
+Фойда кейин келади.
+26.2 Risk Hierarchy
+Account
+↓
+Portfolio
+↓
+Strategy
+↓
+Trade
+↓
+Position
+Риск ҳар бир даражада алоҳида баҳоланади.
+26.3 Fixed Risk Model
+Ҳар бир савдода белгиланган риск.
+Risk
+=
+1%
+ёки
+Risk
+=
+0.5%
+Бу оддий ва барқарор ёндашув.
+26.4 Dynamic Risk Model
+AI рискни бозор шароитига қараб ўзгартиради.
+Confidence
+↓
+Volatility
+↓
+Drawdown
+↓
+Risk
+Масалан:
+юқори ишонч → риск ошиши мумкин;
+юқори волатиллик → риск камайиши мумкин.
+26.5 Position Size Engine
+Лот ҳажми қуйидагилар асосида ҳисобланади:
+Balance
+↓
+Risk %
+↓
+Stop Loss
+↓
+Tick Value
+↓
+Lot Size
+26.6 Maximum Position Size
+Ҳеч қачон белгиланган лимитдан ошмайди.
+Max Lot
+↓
+Validation
+↓
+Trade
+26.7 Daily Risk Protection
+AI кунлик умумий рискни ҳисоблайди.
+Today's Risk
+↓
+5%
+↓
+Stop New Trades
+Лимит мисол тариқасида берилган; амалда фойдаланувчи томонидан созланади.
+26.8 Weekly Drawdown
+Drawdown
+↓
+10%
+↓
+Reduce Risk
+↓
+15%
+↓
+Pause Trading
+Бу қийматлар намунавий сиёсат бўлиб, конфигурация қилинади.
+26.9 Consecutive Loss Protection
+Loss
+↓
+Loss
+↓
+Loss
+↓
+Reduce Risk
+↓
+Pause
+Кетма-кет зарарлардан кейин AI эҳтиёткорлик режимини ёқади.
+26.10 Kelly Criterion
+Ихтиёрий модул сифатида.
+Win Rate
++
+RR
+↓
+Kelly %
+↓
+Recommended Risk
+Бу усул эҳтиёткорлик билан ва чекловлар билан қўлланади.
+26.11 Volatility Risk
+ATR орқали баҳоланади.
+High ATR
+↓
+Lower Position
+↓
+Low ATR
+↓
+Normal Position
+26.12 Portfolio Exposure
+Текширилади.
+Forex
+↓
+Gold
+↓
+Crypto
+↓
+Indices
+Ҳар бир актив синфи учун алоҳида лимитлар бўлиши мумкин.
+26.13 Correlation Protection
+Агар икки инструмент юқори даражада корреляцияланган бўлса:
+EURUSD
++
+GBPUSD
+↓
+Reduce Total Exposure
+26.14 Margin Check
+Ордер очилишидан олдин:
+Free Margin.
+Margin Level.
+Leverage.
+текширилади.
+26.15 Equity Protection
+Equity
+↓
+Critical Level
+↓
+Emergency Stop
+Бу фавқулодда ҳимоя механизми.
+26.16 Risk Score
+Module
+Score
+Drawdown
+20
+Volatility
+20
+Exposure
+20
+Correlation
+20
+Margin
+20
+Maximum = 100
+26.17 Capital Preservation
+Capital
+↓
+Risk Control
+↓
+Trade
+↓
+Journal
+↓
+Statistics
+↓
+Optimization
+26.18 Adaptive Risk
+AI тарихий натижаларга қараб рискни мослаштириши мумкин.
+Performance
+↓
+Confidence
+↓
+Risk Adjustment
+Бу механизм қатъий чегаралар ичида ишлайди.
+26.19 Risk Dashboard
+Кўрсатилади:
+Current Risk
+Daily Risk
+Weekly Risk
+Drawdown
+Exposure
+Margin Level
+Open Positions
+Portfolio Status
+26.20 Emergency Protection
+Фавқулодда ҳолатларда:
+Broker Error
+↓
+Internet Lost
+↓
+Close Policy
+↓
+Notify Admin
+Автоматик ёпиш сиёсати фойдаланувчи конфигурациясига боғлиқ бўлади.
+26.21 Risk Pipeline
+Signal
+↓
+Risk Analysis
+↓
+Position Size
+↓
+Portfolio Check
+↓
+Margin Check
+↓
+Execution
+26.22 Enterprise Features
+Fixed Risk
+Dynamic Risk
+Kelly Module
+Portfolio Management
+Correlation Filter
+Drawdown Protection
+Adaptive Position Sizing
+Margin Validation
+Equity Protection
+Risk Dashboard
+26.23 Golden Rule
+Профессионал AI учун асосий қоида:
+"Бирорта ҳам савдо аккаунтни хавф остига қўймаслиги керак."
+Бунинг мақсади рискни камайтиришдир, лекин ҳеч қайси риск бошқарув тизими зарарни бутунлай йўқ қила олмайди.
+27-БОБ — AI SELF-LEARNING & PERFORMANCE OPTIMIZATION
+Кейинги бўлимда ёритилади:
+Trade Analytics Engine
+Win/Loss Pattern Analysis
+Strategy Performance Tracking
+Parameter Optimization
+AI Confidence Calibration
+Historical Pattern Database
+Strategy Comparison
+Auto Report Generator
+Continuous Performance Monitoring
+Optimization Framework
+Бу бўлим TITAN AI'нинг ўз натижаларини таҳлил қилиши ва конфигурацияланган қоидалар асосида ўз ишлашини яхшилаб бориш архитектурасига бағишланади.
+TITAN AI TRADING BIBLE
+27-БОБ — AI SELF-LEARNING & PERFORMANCE OPTIMIZATION (ENTERPRISE)
+Мақсад: TITAN AI ҳар бир савдодан маълумот тўплайди, натижаларни таҳлил қилади ва қоидаларга асосланган оптимизация орқали тизим самарадорлигини оширишга ҳаракат қилади. Бу модул мустақил равишда "ўзини ўзи ўқитади" дегани эмас; ҳар қандай ўзгаришлар тест ва тасдиқдан ўтиши керак.
+27.1 Optimization Philosophy
+Институционал тизимнинг асосий қоидаси:
+"Натижаларни ўлчамасанг, яхшилай олмайсан."
+27.2 Learning Cycle
+Trade
+↓
+Journal
+↓
+Statistics
+↓
+Pattern Analysis
+↓
+Optimization Candidate
+↓
+Backtest
+↓
+Validation
+↓
+Deploy
+27.3 Trade Analytics Engine
+Ҳар бир савдо таҳлил қилинади.
+Сақланади:
+Symbol
+Strategy
+Timeframe
+Entry Time
+Exit Time
+Session
+RR
+Profit/Loss
+Entry Score
+Exit Reason
+27.4 Win/Loss Pattern Analysis
+AI қидиради:
+Winning Trades
+↓
+Common Features
+↓
+Pattern
+ва
+Losing Trades
+↓
+Common Features
+↓
+Risk Factors
+27.5 Strategy Performance
+Ҳар бир стратегия учун алоҳида статистика.
+Strategy
+Win Rate
+Profit Factor
+Avg RR
+ICT
+...
+...
+...
+SMC
+...
+...
+...
+Breakout
+...
+...
+...
+2 Bar
+...
+...
+...
+27.6 Symbol Performance
+Қайси инструмент яхшироқ ишлаётгани баҳоланади.
+EURUSD
+↓
+Performance
+↓
+Gold
+↓
+Performance
+↓
+BTCUSD
+27.7 Session Analysis
+Қайси вақтда натижа яхшироқ?
+Asian
+London
+New York
+Overlap
+27.8 Confidence Calibration
+Агар AI 95% ишонч билан кўп марта хатога йўл қўйса:
+Prediction
+↓
+Reality
+↓
+Calibration
+Confidence баҳоси қайта мослаштирилади.
+27.9 Parameter Optimization
+Қуйидагилар қайта баҳоланади:
+ATR Period
+EMA Period
+Risk %
+Entry Score Threshold
+FVG Size Filter
+Order Block Score
+Эслатма: Бу параметрлар тўғридан-тўғри реал савдода эмас, аввал backtest ва forward test орқали текширилади.
+27.10 Historical Pattern Database
+Барча савдолардан билим базаси шаклланади.
+Trade
+↓
+Features
+↓
+Database
+↓
+Pattern Search
+27.11 Strategy Comparison
+AI турли стратегияларни таққослайди.
+Масалан:
+Win Rate
+Profit Factor
+Drawdown
+Trade Count
+Recovery Time
+27.12 Market Regime Detection
+Бозор ҳолати таснифланади.
+Trending
+↓
+Ranging
+↓
+High Volatility
+↓
+Low Volatility
+Бу маълумот стратегия танлашда ишлатилади.
+27.13 Performance Dashboard
+Кўрсатилади:
+Win Rate
+Average RR
+Net Profit
+Max Drawdown
+Sharpe Ratio
+Expectancy
+Trade Count
+27.14 Continuous Monitoring
+Доим кузатилади:
+Signal Quality
+Execution Quality
+Broker Performance
+Strategy Drift
+Error Rate
+27.15 Optimization Rules
+AI мустақил равишда реал параметрларни ўзгартирмайди.
+Analysis
+↓
+Candidate
+↓
+Backtest
+↓
+Forward Test
+↓
+Approval
+↓
+Production
+Бу ортиқча мослашиш (overfitting) хавфини камайтиради.
+27.16 AI Memory
+Хотирада сақланади:
+Best Strategies
+↓
+Worst Strategies
+↓
+Best Sessions
+↓
+Best Symbols
+↓
+Historical Performance
+27.17 Auto Report Generator
+Автоматик ҳисоботлар:
+Daily
+Weekly
+Monthly
+Quarterly
+Ҳар бир ҳисобот PDF ва Dashboard учун тайёрланиши мумкин.
+27.18 Alert Engine
+Агар:
+Win Rate кескин пасайса;
+Drawdown ошиб кетса;
+Execution хатолари кўпайса;
+AI администраторга огоҳлантириш юборади.
+27.19 Optimization Pipeline
+Trades
+↓
+Journal
+↓
+Analytics
+↓
+Pattern Mining
+↓
+Optimization
+↓
+Backtest
+↓
+Validation
+↓
+Deploy
+27.20 Enterprise Features
+Trade Analytics
+Pattern Recognition
+Strategy Benchmarking
+Market Regime Detection
+Confidence Calibration
+Optimization Candidates
+Auto Reports
+Dashboard Integration
+Historical Database
+Continuous Monitoring
+27.21 Development Notes
+Код даражасида асосий модуллар:
+analyze_trade_results()
+calculate_expectancy()
+detect_market_regime()
+compare_strategies()
+generate_reports()
+propose_parameter_updates()
+validate_candidate_changes()
+27.22 Institutional Improvement Loop
+Market
+↓
+Trade
+↓
+Journal
+↓
+Analytics
+↓
+Optimization Candidate
+↓
+Testing
+↓
+Production
+↓
+Repeat
+Бу цикл TITAN AI'ни тартибли равишда такомиллаштиришга хизмат қилади. У натижалардан ўрганади, лекин реал савдода тасдиқланмаган ўзгаришларни автоматик қўлламайди.
+28-БОБ — BACKTESTING & FORWARD TESTING FRAMEWORK
+Кейинги бўлимда қуйидагилар чуқур ёритилади:
+Historical Data Engine
+Tick-Level Backtesting
+Walk-Forward Analysis
+Monte Carlo Simulation
+Slippage & Spread Modeling
+Multi-Strategy Comparison
+Robustness Testing
+Forward Demo Validation
+Performance Benchmarking
+Production Release Criteria
+Бу бўлим TITAN AI'нинг ҳар қандай янги алгоритми ёки параметри реал ҳисобда ишлатилишидан олдин қандай текширилишини белгилайди.
+TITAN AI TRADING BIBLE
+28-БОБ — BACKTESTING & FORWARD TESTING FRAMEWORK (INSTITUTIONAL)
+Мақсад: TITAN AI'нинг ҳар бир стратегияси ва алгоритми реал ҳисобда ишлашидан олдин тарихий маълумотлар ва демо муҳитда қатъий тестдан ўтказилади.
+28.1 Testing Philosophy
+Институционал тизимда қоида:
+"Test First, Trade Later."
+Ҳеч қандай янги алгоритм тўғридан-тўғри реал ҳисобга қўйилмайди.
+28.2 Testing Pipeline
+Strategy
+↓
+Historical Data
+↓
+Backtest
+↓
+Optimization
+↓
+Forward Test
+↓
+Validation
+↓
+Production
+28.3 Historical Data Engine
+Фойдаланилади:
+Tick Data
+Minute Data
+OHLC Data
+Spread History
+Trading Sessions
+28.4 Tick-Level Backtesting
+Энг аниқ тест режими.
+Historical Tick
+↓
+Rebuild Candles
+↓
+Run Strategy
+↓
+Generate Orders
+↓
+Statistics
+Бу усул реал савдога энг яқин натижа беради.
+28.5 Multi-Timeframe Replay
+AI бир вақтнинг ўзида:
+D1
+↓
+H4
+↓
+H1
+↓
+M15
+↓
+M5
+маълумотларини синхрон қайта ишлайди.
+28.6 Spread Simulation
+Ҳар доим бир хил spread ишлатилмайди.
+Historical Spread
+↓
+Current Spread
+↓
+Dynamic Spread Model
+28.7 Slippage Simulation
+Тестда ҳам:
+Positive Slippage
+Negative Slippage
+Requotes
+моделлаштирилади.
+28.8 Commission Engine
+Ҳисобланади:
+Trade
+↓
+Commission
+↓
+Swap
+↓
+Net Profit
+28.9 Monte Carlo Analysis
+AI турли сценарийларни ҳисоблайди.
+1000 Simulations
+↓
+Distribution
+↓
+Risk Analysis
+Бу натижалар барқарорликни баҳолаш учун ишлатилади.
+28.10 Walk Forward Analysis
+Train Data
+↓
+Optimize
+↓
+Future Data
+↓
+Validate
+Бу ортиқча мослашиш (Overfitting) хавфини баҳолашга ёрдам беради.
+28.11 Strategy Benchmark
+Ҳар бир стратегия таққосланади.
+Metric
+Strategy A
+Strategy B
+Win Rate
+...
+...
+PF
+...
+...
+DD
+...
+...
+Expectancy
+...
+...
+28.12 Robustness Test
+Текширилади.
+Spread оширилади.
+Slippage оширилади.
+Commission ўзгартиради.
+ATR ўзгаради.
+Агар стратегия шунда ҳам ишласа — у барқарор ҳисобланади.
+28.13 Forward Testing
+Backtest тугагач.
+Demo Account
+↓
+Live Market
+↓
+Statistics
+↓
+Validation
+28.14 Validation Rules
+AI текширади.
+✓ Drawdown
+✓ Win Rate
+✓ Profit Factor
+✓ Expectancy
+✓ Execution Quality
+28.15 Production Criteria
+Фақат барча талаблар бажарилганда.
+Backtest PASS
+↓
+Forward PASS
+↓
+Risk PASS
+↓
+Production
+28.16 Reporting
+Ҳар бир тест учун PDF ҳисобот.
+Ичида:
+Equity Curve
+Drawdown
+Monthly Profit
+Trade List
+Statistics
+28.17 Performance Dashboard
+Кўрсатилади.
+Net Profit
+Gross Profit
+Gross Loss
+Max Drawdown
+Sharpe Ratio
+Sortino Ratio
+Calmar Ratio
+Recovery Factor
+28.18 Version Control
+Ҳар бир стратегия версияланади.
+Strategy
+↓
+v1.0
+↓
+v1.1
+↓
+v1.2
+↓
+v2.0
+28.19 Regression Testing
+Янги ўзгаришдан кейин.
+Old Version
+↓
+New Version
+↓
+Compare
+↓
+Approve
+28.20 Testing Database
+Сақланади.
+Test ID
+Strategy
+Parameters
+Result
+Date
+Version
+28.21 Backtesting Pipeline
+Historical Data
+↓
+Replay Engine
+↓
+Strategy
+↓
+Execution
+↓
+Journal
+↓
+Statistics
+↓
+Report
+28.22 Enterprise Features
+Tick-Level Backtesting
+Dynamic Spread Model
+Slippage Simulation
+Monte Carlo Analysis
+Walk-Forward Testing
+Strategy Benchmarking
+Regression Testing
+Version Control
+PDF Reports
+Dashboard Integration
+28.23 Production Rule
+Институционал муҳитда асосий қоида:
+"Бир марта яхши Backtest — келажакда ҳам худди шундай натижа бўлишини кафолатламайди."
+Шунинг учун TITAN AI ҳар доим Backtest, Forward Test ва реал мониторинг натижаларини биргаликда баҳолайди.
+29-БОБ — MACHINE LEARNING & AI DECISION CORE
+Кейинги бўлимда TITAN AI'нинг марказий интеллект қисми ёзилади:
+Feature Engineering
+AI Decision Pipeline
+Confidence Prediction
+Ensemble Models
+Pattern Classification
+Reinforcement Feedback Architecture
+Explainable AI (XAI)
+Decision Scoring
+Model Versioning
+AI Governance
+Бу китобнинг энг муҳим бўлимларидан бири бўлиб, барча модуллардан келган маълумотлар айнан шу ерда ягона қарорга айлантирилади.
+TITAN AI TRADING BIBLE
+29-БОБ — MACHINE LEARNING & AI DECISION CORE (INSTITUTIONAL)
+Мақсад: TITAN AI'нинг барча модулларидан келган маълумотларни ягона қарорга айлантириш. Бу модул қарор қабул қилишни тизимли ва баҳоланадиган жараёнга айлантиради.
+29.1 AI Philosophy
+TITAN AI бирор индикатор ёки ягона стратегияга таянмайди.
+У турли модуллардан келган маълумотларни бирлаштиради.
+Trend
++
+Liquidity
++
+Order Block
++
+FVG
++
+Risk
++
+Session
++
+Volume
+↓
+AI Decision
+29.2 Feature Engineering
+Ҳар бир сигнал рақамли белгиларига (Features) айлантирилади.
+Мисол:
+Trend Score
+Liquidity Score
+FVG Score
+OB Score
+ATR
+Spread
+Session
+Volume
+Confidence
+Ҳар бир белги кейинги таҳлил учун тайёрланади.
+29.3 Feature Normalization
+Барча Feature'лар бир хил диапазонга келтирилади.
+Raw Data
+↓
+Normalize
+↓
+0...1
+↓
+AI Model
+Бу турли кўламдаги маълумотларни таққослашни осонлаштиради.
+29.4 Feature Store
+Ҳар бир Feature сақланади.
+Market
+↓
+Features
+↓
+Feature Store
+↓
+Prediction
+Бу кейинги таҳлил ва қайта ўқитиш учун хизмат қилади.
+29.5 Decision Pipeline
+Scanner
+↓
+Trend Engine
+↓
+Liquidity Engine
+↓
+Order Block
+↓
+FVG
+↓
+Risk
+↓
+AI Decision
+29.6 Ensemble Architecture
+Бир нечта модел биргаликда ишлайди.
+Rule Engine
++
+Statistical Model
++
+ML Model
+↓
+Final Decision
+Бу ягона моделга қараганда барқарорроқ бўлиши мумкин.
+29.7 Pattern Classification
+AI ҳолатни таснифлайди.
+Trending
+↓
+Pullback
+↓
+Breakout
+↓
+Range
+↓
+Reversal
+29.8 Confidence Prediction
+AI қарор учун ишонч баллини ҳисоблайди.
+Module
+Weight
+Trend
+20
+Liquidity
+20
+Order Block
+15
+FVG
+15
+Risk
+15
+Session
+10
+Volume
+5
+29.9 Decision Levels
+0–40
+Reject
+↓
+41–60
+Watch
+↓
+61–80
+Candidate
+↓
+81–90
+Strong
+↓
+91–100
+Elite
+29.10 Explainable AI (XAI)
+Ҳар бир қарор тушунтирилиши мумкин.
+Масалан:
+BUY
+↓
+Trend Score = 91
+Liquidity = 94
+OB = 88
+FVG = 85
+Risk = PASS
+Бу қарорнинг сабабларини кўриш имконини беради.
+29.11 AI Memory
+Хотирада сақланади:
+ўхшаш ҳолатлар;
+натижалар;
+ишонч балллари;
+стратегия самарадорлиги.
+29.12 Model Versioning
+Ҳар бир AI модели версияга эга.
+Model
+↓
+v1.0
+↓
+v1.1
+↓
+v2.0
+29.13 Decision Log
+Ҳар бир қарор журналга ёзилади.
+Signal ID
+Decision
+Score
+Reason
+Model Version
+Time
+29.14 Governance Rules
+AI қуйидагиларни мустақил ўзгартирмайди:
+Risk Limit
+Maximum Lot
+Broker Settings
+Account Permissions
+Бу параметрлар фақат конфигурация ёки администратор орқали ўзгаради.
+29.15 Continuous Evaluation
+Доимий баҳоланади:
+Prediction Accuracy
+Win Rate
+False Positive Rate
+False Negative Rate
+Decision Stability
+29.16 AI Feedback Loop
+Prediction
+↓
+Trade
+↓
+Result
+↓
+Analytics
+↓
+Validation
+↓
+Model Improvement Candidate
+Бу ўзгаришлар аввал тест муҳитида текширилади.
+29.17 AI Dashboard
+Кўрсатилади:
+Current Model
+Average Confidence
+Prediction Accuracy
+Active Strategies
+Feature Importance
+Recent Decisions
+29.18 AI Decision Pipeline
+Market Data
+↓
+Feature Engineering
+↓
+Normalization
+↓
+Ensemble Models
+↓
+Confidence Score
+↓
+Risk Validation
+↓
+Execution Engine
+29.19 Enterprise Features
+Feature Engineering
+Feature Store
+Ensemble Decision
+Explainable AI (XAI)
+Confidence Scoring
+Model Versioning
+Decision Logging
+Continuous Evaluation
+Governance Rules
+Dashboard Integration
+29.20 Golden Rule
+"AI қарор қабул қилишни тезлаштириши мумкин, аммо бозорни аниқ башорат қила олмайди."
+Шунинг учун TITAN AI ҳар бир қарорни риск бошқаруви ва тасдиқловчи модуллар билан биргаликда қабул қилади.
+29.21 Recommended Project Structure
+core/
+    ai/
+        decision_engine.py
+        feature_engine.py
+        feature_store.py
+        ensemble.py
+        confidence.py
+        explainable_ai.py
+        model_registry.py
+        validator.py
+Бу тузилиш модулларни мустақил ишлаб чиқиш ва тест қилишни енгиллаштиради.
+30-БОБ — PRODUCTION DEPLOYMENT & ENTERPRISE INFRASTRUCTURE
+Кейинги бўлимда қуйидагилар ёритилади:
+Docker Architecture
+Docker Compose
+Nginx Reverse Proxy
+CI/CD Pipeline
+GitHub Actions
+Monitoring (Prometheus + Grafana)
+Logging Stack
+VPS & Cloud Deployment
+High Availability
+Disaster Recovery
+Security Hardening
+Enterprise Production Checklist
+Бу китобнинг якуний техник қисми бўлиб, TITAN AI'ни локал компьютердан профессионал, 24/7 ишлайдиган сервер инфратузилмасига ўтказиш жараёнини қамраб олади.
+TITAN AI TRADING BIBLE
+30-БОБ — PRODUCTION DEPLOYMENT & ENTERPRISE INFRASTRUCTURE (FINAL)
+Мақсад: TITAN AI'ни локал компьютердан профессионал, 24/7 ишлайдиган, хавфсиз ва масштабланадиган ишлаб чиқариш муҳитига (Production) жойлаштириш.
+30.1 Production Philosophy
+Институционал тизим учун асосий қоида:
+"Тизимнинг ишламай қолиши ҳам риск ҳисобланади."
+Шунинг учун инфратузилма ҳам стратегия каби муҳим.
+30.2 Enterprise Architecture
+                    Users
+                      │
+                      ▼
+              Telegram Bot API
+                      │
+                      ▼
+               Nginx Reverse Proxy
+                      │
+      ┌───────────────┼────────────────┐
+      ▼               ▼                ▼
+ Decision API     Dashboard API     Admin API
+      │               │                │
+      └───────────────┼────────────────┘
+                      ▼
+                AI Decision Core
+                      │
+      ┌───────────────┼────────────────┐
+      ▼               ▼                ▼
+ Scanner        Risk Engine      Execution Engine
+      │               │                │
+      └───────────────┼────────────────┘
+                      ▼
+                MT5 / Broker API
+                      │
+                      ▼
+                  Financial Market
+30.3 Docker Containers
+Ҳар бир сервис алоҳида контейнерда ишлайди.
+Bot
+AI
+Scanner
+Risk
+Dashboard
+Database
+Redis
+Grafana
+30.4 Docker Compose
+docker-compose.yml
+↓
+Bot
+↓
+PostgreSQL
+↓
+Redis
+↓
+Prometheus
+↓
+Grafana
+↓
+Nginx
+30.5 CI/CD Pipeline
+GitHub
+↓
+GitHub Actions
+↓
+Tests
+↓
+Docker Build
+↓
+Deploy VPS
+↓
+Restart Containers
+Ҳар бир ўзгариш автоматик тестдан ўтади.
+30.6 Logging
+Ҳар бир ҳаракат журналга ёзилади.
+Trade Logs
+AI Logs
+Risk Logs
+System Logs
+API Logs
+30.7 Monitoring
+Кузатилади:
+CPU
+RAM
+Disk
+Network
+API Latency
+Tick Speed
+Queue Size
+Trade Latency
+30.8 Alert System
+Агар:
+VPS ишламаса;
+AI тўхтаса;
+маълумот оқими узилса;
+риск лимити бузилса;
+тизим администраторга хабар юборади.
+30.9 Backup Strategy
+Автоматик сақланади:
+Database
+↓
+Strategies
+↓
+AI Models
+↓
+Logs
+↓
+Reports
+30.10 Disaster Recovery
+Failure
+↓
+Backup
+↓
+Restore
+↓
+Validation
+↓
+Resume
+Бу тизим ишини тез тиклашга ёрдам беради.
+30.11 Security Hardening
+Ҳимоя чоралари:
+HTTPS
+Firewall
+API Authentication
+Secret Management
+Rate Limiting
+Encryption
+Audit Logs
+30.12 Database Architecture
+Users
+Trades
+Signals
+Strategies
+Statistics
+AI Models
+Reports
+Logs
+30.13 Scheduler
+Автоматик вазифалар:
+Daily Report
+Weekly Report
+Backup
+Cleanup
+Statistics Update
+Model Validation
+30.14 Performance Scaling
+More Symbols
+↓
+More Workers
+↓
+Load Balancer
+↓
+Horizontal Scaling
+30.15 High Availability
+Primary Server
+↓
+Health Check
+↓
+Automatic Failover
+↓
+Secondary Server
+Бу ягона сервер ишдан чиқса ҳам хизматни тиклашга ёрдам беради.
+30.16 Production Checklist
+Ишга туширишдан олдин:
+✓ Unit Tests
+✓ Integration Tests
+✓ Backtest
+✓ Forward Test
+✓ Risk Validation
+✓ Security Check
+✓ Backup Ready
+✓ Monitoring Ready
+✓ Alert System Ready
+30.17 Release Workflow
+Development
+↓
+Testing
+↓
+Staging
+↓
+Production
+Тўғридан-тўғри Production'га ўзгариш юборилмайди.
+30.18 Enterprise Dashboard
+Кўрсатилади:
+Active Trades
+AI Confidence
+Win Rate
+Current Drawdown
+Portfolio Risk
+CPU/RAM
+VPS Status
+Broker Status
+30.19 Future Extensions
+Архитектура кейинчалик қуйидагиларни қўшишга тайёр:
+Multi-Broker Support
+Multi-Account Trading
+Web Dashboard
+Mobile Dashboard
+REST API
+FIX API
+Portfolio Optimizer
+Cloud AI Models
+Reinforcement Learning (тадқиқот режимида)
+30.20 TITAN AI — Complete Decision Flow
+Market Data
+      │
+      ▼
+Scanner Engine
+      │
+      ▼
+Trend Intelligence
+      │
+      ▼
+Liquidity Intelligence
+      │
+      ▼
+Order Block Engine
+      │
+      ▼
+Fair Value Gap Engine
+      │
+      ▼
+Risk Engine
+      │
+      ▼
+AI Decision Core
+      │
+      ▼
+Execution Engine
+      │
+      ▼
+Broker
+      │
+      ▼
+Trade Journal
+      │
+      ▼
+Analytics
+      │
+      ▼
+Optimization Cycle
+30.21 Final Enterprise Principles
+TITAN AI қуйидаги 10 принципга амал қилади:
+Capital Protection First.
+High-Quality Trades Only.
+Multi-Factor Confirmation.
+Multi-Timeframe Context.
+Institutional Liquidity Analysis.
+Strict Risk Management.
+Explainable AI Decisions.
+Continuous Monitoring.
+Test Before Deployment.
+Continuous Improvement.
+30.22 Китоб якуни
+Шу 30 боб орқали TITAN AI учун тўлиқ архитектура тасвирланди:
+Бозор маълумотларини қабул қилиш.
+Институционал таҳлил (Trend, Liquidity, Order Block, FVG).
+Risk Management.
+Entry ва Exit қоидалари.
+AI Decision Core.
+Testing.
+Optimization.
+Production Deployment.
+Бу ҳужжат архитектура ва дизайн қўлланмаси ҳисобланади. Унинг ўзи тайёр ишлайдиган бот эмас, балки ботни босқичма-босқич ишлаб чиқиш учун техник асосдир.
+Кейинги қадам
+Бу қўлланма асосида кейинги босқич сифатида ҳар бир модул учун амалий Python коди, тестлар ва Telegram + MT5 интеграцияси ёзилиши мумкин. Шунда архитектура реал ишлайдиган тизимга айлантирилади.
+Давом этамиз.
+TITAN AI TRADING BIBLE
+31-БОБ — PSYCHOLOGY SIMULATION ENGINE (INSTITUTIONAL)
+Мақсад: Кўпчилик трейдерлар эмоция сабаб зарар кўради. TITAN AI эса эмоциясиз ишлайди, лекин инсон психологиясини ҳисобга олади. Бу модул бозор иштирокчиларининг эҳтимолий хатти-ҳаракатларини моделлаштиришга хизмат қилади.
+31.1 Market Psychology
+Бозорнинг асосий ҳаракатлантирувчи кучи:
+Fear
++
+Greed
++
+Liquidity
+↓
+Price Movement
+31.2 Crowd Behavior
+AI баҳолайди:
+Panic Selling
+Panic Buying
+FOMO
+Capitulation
+Distribution
+Accumulation
+31.3 Fear Index
+Ҳар бир сигнал учун:
+Low Fear
+↓
+Medium Fear
+↓
+Extreme Fear
+31.4 Greed Index
+Low Greed
+↓
+Medium Greed
+↓
+Extreme Greed
+31.5 FOMO Detector
+AI баҳолайди:
+Vertical Move
+Late Breakout
+Huge Candle
+Retail Entry Probability
+31.6 Trap Detector
+Институционал тузоқлар.
+Liquidity
+↓
+Fake Break
+↓
+Retail Entry
+↓
+Reverse
+31.7 Retail Position Model
+AI тахмин қилади.
+Қаерда:
+Stop Loss
+Buy Stop
+Sell Stop
+кўп бўлиши мумкин.
+31.8 Institutional Behavior
+Катта иштирокчилар одатда:
+Liquidity йиғади.
+Sweep қилади.
+Structure бузади.
+Кейин ҳақиқий ҳаракат бошланади.
+31.9 Emotion Score
+Emotion
+Score
+Fear
+25
+Greed
+25
+Trap Probability
+25
+FOMO
+25
+31.10 Psychology Dashboard
+Кўрсатилади:
+Crowd Bias
+Fear Index
+Greed Index
+Trap Probability
+Institutional Bias
+31.11 AI Psychology Engine
+Market
+↓
+Retail Behavior
+↓
+Institutional Behavior
+↓
+Psychology Score
+↓
+Decision Core
+31.12 Enterprise Features
+Crowd Analysis
+Trap Detection
+FOMO Detection
+Psychology Score
+Retail Bias Estimation
+Institutional Context
+32-БОБ — NEWS & FUNDAMENTAL INTELLIGENCE ENGINE
+Кейинги бобда:
+Economic Calendar Integration
+High Impact News Filter
+CPI
+NFP
+FOMC
+Interest Rates
+Central Bank Analysis
+Fundamental Score
+News Sentiment AI
+Automatic Trading Pause
+News Recovery Logic
+📘 Китобнинг кейинги режаси
+Энди китоб 30 бобдан кенгайтирилиб 50 та профессионал бобга чиқади.
+Қолган бўлимлар:
+32. News & Fundamental Engine
+33. Volume Profile Engine
+34. Smart Money Concepts Engine
+35. ICT Advanced Algorithms
+36. Wyckoff Engine
+37. Elliott Wave AI
+38. Harmonic Pattern AI
+39. Market Regime Engine
+40. Multi-Strategy Fusion Engine
+41. Reinforcement Learning Framework (тадқиқот режими)
+42. Portfolio AI
+43. Multi-Broker Engine
+44. Cloud AI Infrastructure
+45. Enterprise Security
+46. API Gateway
+47. High Frequency Scanner
+48. Quantitative Analytics
+49. TITAN AI Enterprise Dashboard
+50. TITAN AI v1.0 Final Architecture
+Бу 50 боблик версия тахминан 450–600 бетлик профессионал техник қўлланмага айланади ва у орқали Python + MT5 + Telegram асосида юқори даражали AI трейдинг тизимини босқичма-босқич ишлаб чиқиш мумкин. Шу билан бирга, ҳатто бундай кенг қамровли архитектура ҳам бозорда маълум фоиздаги муваффақиятни кафолатлай олмайди; унинг сифати амалий код, тестлар ва доимий текширувга боғлиқ бўлади.
+TITAN AI TRADING BIBLE
+32-БОБ — NEWS & FUNDAMENTAL INTELLIGENCE ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI юқори таъсирга эга фундаментал воқеаларни ҳисобга олиб, хавфли пайтларда савдо қилишдан сақланиш ёки рискни мослаштириш.
+32.1 Fundamental Philosophy
+Техник анализ ҳамма вақт етарли эмас.
+Баъзи иқтисодий янгиликлар қисқа вақт ичида бозорда кескин ўзгаришларга сабаб бўлиши мумкин.
+Technical Analysis
++
+Fundamental Analysis
+↓
+Final Decision
+32.2 Economic Calendar Engine
+AI иқтисодий тақвимдан маълумот олади.
+Текширилади:
+Time
+Currency
+Impact
+Forecast
+Previous
+Actual
+32.3 News Classification
+Янгиликлар тоифаларга ажратилади.
+Low Impact
+↓
+Medium Impact
+↓
+High Impact
+↓
+Critical
+32.4 High Impact Events
+Автоматик кузатилади.
+NFP
+CPI
+PPI
+FOMC
+Interest Rate
+GDP
+Retail Sales
+Unemployment
+PMI
+ECB
+BOE
+BOJ
+32.5 News Risk Score
+Ҳар бир хабар баҳоланади.
+Event
+Weight
+NFP
+100
+Interest Rate
+100
+FOMC
+95
+CPI
+90
+GDP
+85
+PMI
+70
+Retail Sales
+60
+32.6 Currency Mapping
+USD
+↓
+EUR
+↓
+GBP
+↓
+JPY
+↓
+AUD
+↓
+CAD
+↓
+CHF
+↓
+NZD
+AI фақат тегишли валюталарга таъсир қилувчи хабарларни ҳисобга олади.
+32.7 News Filter
+Сигнал чиқишидан олдин:
+Signal
+↓
+News Check
+↓
+Safe?
+↓
+Trade
+or
+Reject
+32.8 Trading Pause
+Агар High Impact News яқинлашса:
+30 min Before
+↓
+Pause
+↓
+News
+↓
+30 min After
+↓
+Resume
+Бу вақт оралиғи конфигурация қилинади.
+32.9 Volatility Prediction
+AI баҳолайди.
+Expected Volatility
+Historical Reaction
+ATR Increase
+Spread Expansion
+32.10 Spread Protection
+Янгилик вақтида:
+Spread
+↓
+Too High?
+↓
+Reject Entry
+32.11 Slippage Protection
+Expected Price
+↓
+Execution Price
+↓
+Difference
+↓
+Accept
+or
+Reject
+32.12 Fundamental Score
+Factor
+Score
+News Impact
+30
+Currency Importance
+20
+Historical Reaction
+20
+Spread Risk
+15
+Volatility
+15
+Maximum = 100
+32.13 News Sentiment
+AI баҳолайди.
+Positive
+↓
+Neutral
+↓
+Negative
+Бу баҳолаш қўшимча контекст сифатида ишлатилади.
+32.14 Central Bank Monitor
+Доимий кузатилади.
+Federal Reserve
+ECB
+BOE
+BOJ
+SNB
+RBA
+BOC
+RBNZ
+32.15 Market Recovery
+Янгиликдан кейин.
+News
+↓
+Volatility
+↓
+Normalize
+↓
+Trading Resume
+32.16 News Dashboard
+Кўрсатилади.
+Next Event
+Time Remaining
+Impact
+Risk Level
+Trading Status
+32.17 Emergency News
+Фавқулодда ҳолатлар.
+Breaking News
+↓
+Circuit Breaker
+↓
+Pause Trading
+↓
+Notify Admin
+32.18 News Pipeline
+Economic Calendar
+↓
+Impact Analysis
+↓
+Risk Score
+↓
+Trading Decision
+32.19 Enterprise Features
+Economic Calendar
+High Impact Detection
+Automatic Trading Pause
+Spread Protection
+Slippage Filter
+Fundamental Score
+News Dashboard
+Central Bank Monitoring
+Emergency News Mode
+32.20 Development Notes
+Асосий Python модуллари:
+calendar_service.py
+news_filter.py
+impact_calculator.py
+fundamental_score.py
+pause_manager.py
+news_dashboard.py
+32.21 Institutional Rule
+"Катта янгилик вақтида савдо қилмаслик ҳам профессионал қарор ҳисобланади."
+TITAN AI бозорга ҳар доим кирмайди. Агар фундаментал хавф техник устунликдан юқори бўлса, тизим савдони вақтинча тўхтатиши мумкин.
+33-БОБ — VOLUME PROFILE & ORDER FLOW ENGINE
+Кейинги бобда қуйидагилар чуқур ёритилади:
+Volume Profile
+Point of Control (POC)
+Value Area High / Low (VAH / VAL)
+High Volume Nodes (HVN)
+Low Volume Nodes (LVN)
+Delta Volume
+Cumulative Delta
+Absorption Detection
+Iceberg Orders
+Order Flow AI
+Institutional Volume Analysis
+Бу бўлим TITAN AI'га нархдан ташқари ҳажм ва order flow маълумотларини ҳам ҳисобга олиш имконини беради.
+TITAN AI TRADING BIBLE
+33-БОБ — VOLUME PROFILE & ORDER FLOW ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI нарх ҳаракатини ҳажм (Volume) ва Order Flow маълумотлари билан бойитади. Агар брокер ёки маълумот манбасида ҳақиқий order flow мавжуд бўлмаса, тизим чекланган маълумотлар билан ишлайди ва бу чеклов ҳисобга олинади.
+33.1 Volume Philosophy
+Нарх қайси йўналишда ҳаракатланганини кўрсатади.
+Volume эса ҳаракат қанчалик қўллаб-қувватланганини баҳолашга ёрдам беради.
+Price
++
+Volume
+↓
+Market Context
+33.2 Volume Sources
+TITAN AI турли манбалар билан ишлайди.
+Tick Volume
+↓
+Real Exchange Volume
+↓
+Order Flow
+↓
+Market Depth
+Манба турига қараб ишонч даражаси ўзгариши мумкин.
+33.3 Volume Profile
+Ҳар бир нарх даражасидаги ҳажм ҳисобланади.
+Session
+↓
+Price Levels
+↓
+Volume Histogram
+33.4 Point of Control (POC)
+POC — энг катта ҳажм йиғилган нарх.
+Highest Volume
+↓
+POC
+Бу кўпинча муҳим мувозанат нуқтаси ҳисобланади.
+33.5 Value Area
+Volume'нинг асосий қисми жойлашган зона.
+VAH
+↓
+POC
+↓
+VAL
+Одатда Value Area ҳажмнинг асосий улушини қамраб олади.
+33.6 High Volume Node (HVN)
+High Volume
+↓
+Acceptance Zone
+Бу ерда бозор иштирокчилари фаол бўлган.
+33.7 Low Volume Node (LVN)
+Low Volume
+↓
+Rejection Zone
+LVN орқали нарх тез ҳаракат қилиши мумкин.
+33.8 Delta Volume
+Buy Volume
+-
+Sell Volume
+↓
+Delta
+Ҳақиқий Delta фақат мос маълумот манбаи мавжуд бўлганда ҳисобланади.
+33.9 Cumulative Delta
+Delta
+↓
+Running Sum
+↓
+Cumulative Delta
+Бу харид ва сотув босимининг йиғиндисини кўрсатади.
+33.10 Absorption Detection
+Катта иштирокчи лимит ордерлари бозор босимини ютиб юбораётган ҳолатлар изланади.
+Aggressive Buying
+↓
+No Breakout
+↓
+Absorption
+33.11 Iceberg Detection
+AI эҳтимолий Iceberg Order'ларни қидиради.
+Белгилар:
+Бир хил нарх.
+Такрорланувчи ҳажм.
+Кучли реакция.
+33.12 Volume Imbalance
+Buyer Dominance
+↓
+Balanced
+↓
+Seller Dominance
+33.13 Order Flow Score
+Component
+Score
+Volume Profile
+20
+POC Context
+15
+Delta
+20
+Absorption
+20
+Iceberg Probability
+10
+Liquidity Context
+15
+Maximum = 100
+33.14 Volume Confirmation
+Order Block ёки FVG қуйидагилар билан тасдиқланиши мумкин:
+юқори ҳажм;
+Delta йўналиши;
+Absorption;
+Volume Spike.
+33.15 Fake Breakout Filter
+Breakout
+↓
+Low Volume
+↓
+Reject
+Ҳажм билан тасдиқланмаган breakout эҳтиёткорлик билан баҳоланади.
+33.16 Multi-Timeframe Volume
+Daily
+↓
+H4
+↓
+H1
+↓
+M15
+Ҳар бир вақт оралиғидаги Volume Profile алоҳида ҳисобланади.
+33.17 Volume Dashboard
+Кўрсатилади:
+POC
+VAH
+VAL
+HVN
+LVN
+Delta
+Cumulative Delta
+Volume Spike
+33.18 AI Volume Pipeline
+Market Data
+↓
+Volume Collection
+↓
+Profile Calculation
+↓
+Order Flow Analysis
+↓
+Score
+↓
+Decision Core
+33.19 Enterprise Features
+Volume Profile
+Point of Control
+Value Area
+Delta Analysis
+Cumulative Delta
+Absorption Detection
+Iceberg Detection
+Fake Breakout Filter
+Multi-Timeframe Volume
+Dashboard Integration
+33.20 Development Notes
+Python модуллари:
+volume_profile.py
+delta_engine.py
+order_flow.py
+poc_calculator.py
+absorption_detector.py
+volume_dashboard.py
+33.21 Institutional Rule
+"Нарх қаерга кетганини ҳамма кўради. Катта ҳажм қаерда йиғилганини кўриш эса қўшимча устунлик бериши мумкин."
+Шу билан бирга, MT5'да кўп брокерлар фақат Tick Volume беради. Шунинг учун ҳақиқий Order Flow ва Exchange Volume мавжуд бўлмаган муҳитда ушбу таҳлилнинг имкониятлари чекланган бўлади.
+34-БОБ — SMART MONEY CONCEPTS (SMC) ADVANCED ENGINE
+Кейинги бобда ёритилади:
+Premium & Discount Zones
+Dealing Range
+Internal vs External Liquidity
+SMT Divergence
+Inducement
+Liquidity Engineering
+Institutional Manipulation Model
+Market Maker Cycle
+Advanced Entry Logic
+SMC Decision Framework
+Бу бўлим TITAN AI'нинг Smart Money Concepts асосидаги энг чуқур таҳлил модулларидан бири бўлади.
+TITAN AI TRADING BIBLE
+34-БОБ — SMART MONEY CONCEPTS (SMC) ADVANCED ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI Smart Money Concepts (SMC) принципларини автоматик таҳлил қилиб, институционал иштирокчиларнинг эҳтимолий ҳаракатларини аниқлаш.
+34.1 Smart Money Philosophy
+SMC'нинг асосий ғояси:
+Нарх катта иштирокчилар ликвидлик йиғган йўналишга ҳаракатланади.
+Liquidity
+↓
+Manipulation
+↓
+Expansion
+↓
+Distribution
+↓
+Reaccumulation
+34.2 Market Cycle
+AI бозор циклини аниқлайди.
+Accumulation
+↓
+Manipulation
+↓
+Expansion
+↓
+Distribution
+↓
+Reversal
+34.3 Premium & Discount Zones
+AI Dealing Range ҳисоблайди.
+High
+↓
+Premium
+↓
+Equilibrium
+↓
+Discount
+↓
+Low
+Қоидалар:
+Premium → асосан Sell сценарийлари қидирилади.
+Discount → асосан Buy сценарийлари қидирилади.
+34.4 Equilibrium
+Диапазоннинг 50% нуқтаси.
+High
+↓
+50%
+↓
+Low
+Бу қарор қабул қилишда контекст сифатида ишлатилади.
+34.5 Internal Liquidity
+AI ички ликвидликни топади.
+Мисол:
+Equal High
+Equal Low
+Internal Swing
+Minor Structure
+34.6 External Liquidity
+Ташқи ликвидлик.
+Previous High
+↓
+Previous Low
+↓
+Weekly High
+↓
+Weekly Low
+34.7 Liquidity Engineering
+Институционал сценарий.
+Liquidity Pool
+↓
+Sweep
+↓
+BOS
+↓
+Continuation
+34.8 Inducement Detection
+AI сохта чақирувларни аниқлайди.
+Small BOS
+↓
+Retail Entry
+↓
+Liquidity Grab
+↓
+Real Move
+34.9 SMT Divergence
+Иккита корреляцияланган инструмент таққосланади.
+Мисол:
+EURUSD
+↓
+Higher High
+GBPUSD
+↓
+Lower High
+↓
+SMT Divergence
+Бу қўшимча тасдиқ сифатида ишлатилади.
+34.10 Dealing Range
+Swing High
+↓
+Current Price
+↓
+Swing Low
+AI диапазон ичида нархнинг қаерда турганини ҳисоблайди.
+34.11 Institutional Bias
+Қуйидаги модуллардан баҳоланади.
+Trend
+Liquidity
+BOS
+CHoCH
+Premium/Discount
+Order Block
+FVG
+↓
+Overall Bias
+34.12 Manipulation Detection
+Liquidity Sweep
+↓
+Strong Rejection
+↓
+Displacement
+↓
+Manipulation Confirmed
+34.13 Expansion Phase
+Импульс фазаси.
+Manipulation
+↓
+Expansion
+↓
+Continuation
+34.14 Distribution Phase
+AI қидиради.
+Exhaustion
+Weak Momentum
+Equal Highs
+Liquidity Pools
+34.15 Smart Money Score
+Component
+Score
+Liquidity
+20
+Premium/Discount
+15
+BOS
+15
+CHoCH
+15
+Order Block
+15
+FVG
+10
+Institutional Bias
+10
+Maximum = 100
+34.16 Entry Confirmation
+SMC асосида Entry учун:
+✓ Liquidity Sweep
+✓ BOS
+✓ Order Block
+✓ FVG
+✓ Premium/Discount
+✓ Risk PASS
+34.17 SMC Dashboard
+Кўрсатилади.
+Premium
+Discount
+Internal Liquidity
+External Liquidity
+BOS
+CHoCH
+Bias
+Smart Money Score
+34.18 AI SMC Pipeline
+Market
+↓
+Liquidity
+↓
+Structure
+↓
+Premium
+↓
+Discount
+↓
+SMC Score
+↓
+Decision Core
+34.19 Enterprise Features
+Premium & Discount Engine
+Liquidity Mapping
+Internal/External Liquidity
+SMT Divergence
+Manipulation Detection
+Dealing Range
+Institutional Bias
+Dashboard Integration
+Multi-Timeframe SMC
+Decision Support
+34.20 Development Notes
+Python модуллари:
+premium_discount.py
+liquidity_mapper.py
+smt_divergence.py
+dealing_range.py
+institutional_bias.py
+smc_engine.py
+34.21 Institutional Decision Flow
+Liquidity
+↓
+Sweep
+↓
+Manipulation
+↓
+BOS
+↓
+Order Block
+↓
+FVG
+↓
+Premium/Discount
+↓
+Risk Validation
+↓
+AI Decision
+34.22 Golden Rule
+"Smart Money Concepts йўналишни эмас, контекстни беради."
+Шунинг учун TITAN AI SMC'ни ҳар доим Trend, Risk Management, Volume ва бошқа модуллар билан биргаликда баҳолайди. Бу ёндашув қарор сифатига ёрдам беради, аммо бозор натижасини кафолатламайди.
+35-БОБ — ICT ADVANCED ALGORITHMS
+Кейинги бўлимда ёритилади:
+Judas Swing
+Power of Three (PO3)
+AMD Cycle (Accumulation → Manipulation → Distribution)
+Optimal Trade Entry (OTE)
+Daily Bias Engine
+Weekly Bias Engine
+Kill Zones
+Macro Time Windows
+Silver Bullet Model
+ICT Unicorn Model
+Institutional Entry Framework
+Бу TITAN AI'нинг ICT (Inner Circle Trader) концепцияларига бағишланган энг чуқур таҳлил модулларидан бири бўлади.
+TITAN AI TRADING BIBLE
+35-БОБ — ICT ADVANCED ALGORITHMS (INSTITUTIONAL)
+Мақсад: TITAN AI ICT (Inner Circle Trader) концепцияларини автоматик аниқлаш ва уларни Liquidity, SMC ва Risk Engine билан интеграция қилиш.
+35.1 ICT Philosophy
+ICT ёндашувининг асосий ғояси:
+Институционал иштирокчилар аввал ликвидликни йиғади, кейин ҳақиқий ҳаракатни бошлайди.
+Liquidity
+↓
+Manipulation
+↓
+Expansion
+↓
+Profit Taking
+35.2 AMD Cycle
+AI ҳар бир бозор циклини аниқлайди.
+Accumulation
+↓
+Manipulation
+↓
+Distribution
+Ҳар бир фаза алоҳида баҳоланади.
+35.3 Judas Swing
+Лондон ёки Нью-Йорк сессияси бошидаги сохта ҳаракат.
+Liquidity
+↓
+False Break
+↓
+Judas Swing
+↓
+Real Move
+AI вақт ва ликвидлик контексти билан биргаликда текширади.
+35.4 Optimal Trade Entry (OTE)
+OTE диапазони ҳисобланади.
+Swing High
+↓
+79%
+↓
+70.5%
+↓
+62%
+↓
+Swing Low
+OTE зонаси якка сигнал эмас.
+Қўшимча талаблар:
+BOS
+Liquidity Sweep
+Order Block
+FVG
+35.5 Daily Bias Engine
+AI кунлик йўналишни ҳисоблайди.
+Текширилади:
+Previous Day High
+Previous Day Low
+Daily Liquidity
+Daily Trend
+↓
+Daily Bias
+35.6 Weekly Bias Engine
+Weekly Trend
+↓
+Weekly Liquidity
+↓
+Weekly Bias
+35.7 Kill Zones
+Асосий вақтлар.
+Asian
+↓
+London Kill Zone
+↓
+New York Kill Zone
+Фойдаланувчи ўз вақтига мослаб конфигурация қилиши мумкин.
+35.8 Macro Time Windows
+AI белгиланган микро вақт интервалларини ҳам ҳисобга олиши мумкин.
+Масалан:
+Session Open
+Session Close
+High Liquidity Windows
+35.9 Silver Bullet Model
+Шартлар:
+✓ Kill Zone
+✓ Liquidity Sweep
+✓ FVG
+✓ BOS
+↓
+Silver Bullet Candidate
+35.10 Unicorn Model
+Breaker
++
+FVG
+↓
+Unicorn Setup
+Бу юқори эҳтимолли контекст сифатида баҳоланади.
+35.11 Daily Range Model
+Previous High
+↓
+Current Price
+↓
+Previous Low
+AI кунлик диапазон ичидаги жойлашувни ҳисоблайди.
+35.12 Weekly Range Model
+Худди шу принцип ҳафталик диапазон учун ҳам қўлланилади.
+35.13 Liquidity Raid Detector
+Equal High
+↓
+Sweep
+↓
+Displacement
+↓
+Confirmation
+35.14 Time-Based Filter
+AI текширади:
+Weekend
+Market Open
+Market Close
+Low Liquidity Hours
+High Liquidity Hours
+35.15 ICT Score
+Component
+Score
+AMD Cycle
+20
+OTE
+15
+Judas Swing
+15
+Liquidity
+20
+Kill Zone
+15
+Unicorn / Silver Bullet
+15
+Maximum = 100
+35.16 ICT Dashboard
+Кўрсатилади.
+Daily Bias
+Weekly Bias
+AMD Phase
+OTE Zone
+Kill Zone
+Judas Swing
+ICT Score
+35.17 ICT Pipeline
+Market
+↓
+Daily Bias
+↓
+Liquidity
+↓
+AMD
+↓
+OTE
+↓
+Kill Zone
+↓
+ICT Score
+↓
+Decision Core
+35.18 Enterprise Features
+AMD Detection
+OTE Calculator
+Judas Swing Detection
+Kill Zone Filter
+Silver Bullet Recognition
+Unicorn Model
+Daily Bias
+Weekly Bias
+Liquidity Raid Detection
+Dashboard Integration
+35.19 Development Notes
+Python модуллари:
+ict_engine.py
+amd_detector.py
+ote_engine.py
+judas_detector.py
+killzone.py
+daily_bias.py
+weekly_bias.py
+silver_bullet.py
+unicorn.py
+35.20 Institutional Decision Framework
+Daily Bias
+↓
+Weekly Bias
+↓
+Liquidity Sweep
+↓
+AMD
+↓
+OTE
+↓
+Order Block
+↓
+FVG
+↓
+Risk Validation
+↓
+AI Decision
+35.21 Golden Rule
+"ICT паттернининг ўзи етарли эмас. У Liquidity, Structure ва Risk Management билан биргаликда қўлланилганда қимматли контекст беради."
+Шунинг учун TITAN AI ICT сигналларини мустақил савдо сигнали сифатида эмас, балки умумий Decision Core'нинг бир қисми сифатида баҳолайди.
+36-БОБ — WYCKOFF ACCUMULATION & DISTRIBUTION ENGINE
+Кейинги бобда ёритилади:
+Wyckoff Accumulation
+Wyckoff Distribution
+Phase A–E Detection
+Spring
+Upthrust (UTAD)
+SOS (Sign of Strength)
+SOW (Sign of Weakness)
+Composite Operator Model
+Wyckoff Score
+AI Wyckoff Decision Engine
+Бу модул TITAN AI'га бозор циклини Wyckoff методологияси асосида аниқлаш имкониятини беради.
+TITAN AI TRADING BIBLE
+36-БОБ — WYCKOFF ACCUMULATION & DISTRIBUTION ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI Wyckoff методологияси асосида бозор циклини таҳлил қилиб, эҳтимолий аккумуляция, дистрибуция ва тренд ўзгаришлари учун қўшимча контекст яратиш.
+36.1 Wyckoff Philosophy
+Wyckoff назариясининг асосий ғояси:
+Нарх ҳаракатлари талаб ва таклиф ўртасидаги мувозанат ўзгариши билан боғлиқ.
+Supply
+↓
+Balance
+↓
+Demand
+↓
+Trend
+36.2 Composite Operator Model
+AI бозорни битта иштирокчи эмас, балки шартли Composite Operator модели нуқтаи назаридан таҳлил қилади.
+Institutional Activity
+↓
+Accumulation
+↓
+Markup
+↓
+Distribution
+↓
+Markdown
+36.3 Wyckoff Market Cycle
+Accumulation
+↓
+Markup
+↓
+Distribution
+↓
+Markdown
+↓
+Reaccumulation
+36.4 Phase Detection
+AI фазаларни аниқлашга ҳаракат қилади.
+Phase A
+↓
+Phase B
+↓
+Phase C
+↓
+Phase D
+↓
+Phase E
+Бу тасниф эҳтимолий баҳолаш бўлиб, мутлақ аниқликка эга эмас.
+36.5 Accumulation Detection
+AI қуйидагиларни излайди:
+Selling Climax (SC)
+Automatic Rally (AR)
+Secondary Test (ST)
+Spring
+Test
+36.6 Distribution Detection
+Қидирилади:
+Buying Climax (BC)
+Automatic Reaction (AR)
+Secondary Test (ST)
+Upthrust (UT)
+Upthrust After Distribution (UTAD)
+36.7 Spring Detector
+Support
+↓
+Liquidity Sweep
+↓
+Strong Recovery
+↓
+Spring Candidate
+36.8 Upthrust Detector
+Resistance
+↓
+Breakout
+↓
+Failure
+↓
+Upthrust Candidate
+36.9 SOS (Sign of Strength)
+AI баҳолайди.
+Белгилар:
+юқори импульс;
+кучли ёпилиш;
+ҳажм тасдиғи (агар мавжуд бўлса).
+36.10 SOW (Sign of Weakness)
+Белгилар:
+кучсиз тикланиш;
+паст импульс;
+босимнинг кучайиши.
+36.11 Effort vs Result
+AI таққослайди.
+High Volume
+↓
+Small Move
+↓
+Possible Absorption
+ёки
+Low Volume
+↓
+Large Move
+↓
+Low Participation
+36.12 Cause vs Effect
+Диапазон давомийлиги кейинги ҳаракат потенциали учун қўшимча контекст сифатида баҳоланади.
+36.13 Wyckoff Score
+Component
+Score
+Phase Detection
+20
+Spring / UTAD
+20
+SOS / SOW
+20
+Structure
+15
+Liquidity
+15
+Volume Context
+10
+Maximum = 100
+36.14 Wyckoff Dashboard
+Кўрсатилади:
+Current Phase
+Spring Probability
+Upthrust Probability
+SOS
+SOW
+Wyckoff Score
+36.15 Multi-Timeframe Wyckoff
+Weekly
+↓
+Daily
+↓
+H4
+↓
+H1
+Юқори таймфрейм контексти пастки таймфрейм сигналларига устун қўйилади.
+36.16 Wyckoff Decision Pipeline
+Market Data
+↓
+Structure Analysis
+↓
+Phase Detection
+↓
+Spring / Upthrust
+↓
+SOS / SOW
+↓
+Wyckoff Score
+↓
+Decision Core
+36.17 Enterprise Features
+Automatic Phase Detection
+Spring Recognition
+Upthrust Recognition
+SOS Analysis
+SOW Analysis
+Composite Operator Model
+Cause vs Effect Context
+Effort vs Result Analysis
+Multi-Timeframe Support
+Dashboard Integration
+36.18 Development Notes
+Python модуллари:
+wyckoff_engine.py
+phase_detector.py
+spring_detector.py
+upthrust_detector.py
+sos_analyzer.py
+sow_analyzer.py
+effort_result.py
+wyckoff_dashboard.py
+36.19 Integration with TITAN AI
+Wyckoff модули қуйидаги модуллар билан бирлаштирилади:
+Trend Engine
++
+Liquidity Engine
++
+SMC Engine
++
+ICT Engine
++
+Wyckoff Engine
+↓
+AI Decision Core
+36.20 Institutional Rule
+"Wyckoff фазалари аниқ башорат эмас, балки бозор ҳолатини тушуниш учун контекстдир."
+TITAN AI Wyckoff сигналларини мустақил савдо сигнали сифатида қабул қилмайди. Уларни Liquidity, Market Structure, Risk Management ва бошқа модуллар билан биргаликда баҳолайди.
+37-БОБ — ELLIOTT WAVE AI ENGINE
+Кейинги бўлимда қуйидагилар ёритилади:
+Elliott Wave Detection
+Impulse Wave (1–5)
+Corrective Wave (ABC)
+Wave Degree Classification
+Fibonacci Wave Relationships
+Wave Validation Rules
+Alternate Count Engine
+Elliott Confidence Score
+AI Wave Decision Framework
+Бу модул TITAN AI'га Elliott Wave назариясини автоматик таҳлил қилиш ва уни бошқа модуллар билан интеграция қилиш имконини беради.
+TITAN AI TRADING BIBLE
+37-БОБ — ELLIOTT WAVE AI ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI Elliott Wave назариясини автоматик таҳлил қилиб, бозорнинг эҳтимолий тўлқин босқичини аниқлайди ва уни Liquidity, SMC, ICT ҳамда Risk Engine билан интеграция қилади.
+37.1 Elliott Philosophy
+Elliott Wave асосий ғояси:
+Бозор ҳаракати тартибсиз эмас, балки маълум такрорланувчи тўлқин тузилмаларига эга бўлиши мумкин.
+Impulse
+↓
+Correction
+↓
+Impulse
+↓
+Correction
+37.2 Wave Structure
+AI икки асосий тузилмани ажратади.
+Impulse
+1
+↓
+2
+↓
+3
+↓
+4
+↓
+5
+ва
+Correction
+A
+↓
+B
+↓
+C
+37.3 Impulse Detection
+Импульс учун текширилади:
+✓ BOS
+✓ High Momentum
+✓ Trend Alignment
+✓ Volume Confirmation
+↓
+Impulse Candidate
+37.4 Corrective Wave Detection
+Коррекция белгилари:
+паст импульс;
+қисқарган диапазон;
+ликвидлик йиғилиши;
+FVG тўлдирилиши.
+37.5 Wave Degree
+AI бир нечта даражани баҳолайди.
+Weekly
+↓
+Daily
+↓
+H4
+↓
+H1
+↓
+M15
+Юқори даража пастки даража учун контекст ҳисобланади.
+37.6 Fibonacci Validation
+Ҳар бир тўлқин Fibonacci нисбатлари билан текширилади.
+Wave
+↓
+Fibonacci
+↓
+Validation
+Бу текширув қўшимча фильтр вазифасини бажаради.
+37.7 Wave Rules Engine
+AI Elliott қоидаларини текширади.
+Мисол:
+Wave 2 одатда Wave 1 бошланишидан пастга ўтмайди.
+Wave 3 одатда импульс тўлқинлари ичида энг қисқаси бўлмайди.
+Wave 4 кўп ҳолларда Wave 1 ҳудудига кирмайди (айрим истиснолардан ташқари).
+Қоида бузилса:
+Reject Count
+37.8 Alternate Count Engine
+Агар бир нечта эҳтимолий ҳисоблаш мавжуд бўлса:
+Primary Count
+↓
+Alternative Count
+↓
+Confidence Ranking
+37.9 Wave Confidence
+Ҳар бир ҳисоблаш учун ишонч балли берилади.
+Factor
+Score
+Structure
+25
+Fibonacci
+20
+Momentum
+20
+Liquidity
+15
+Trend
+20
+Maximum = 100
+37.10 Wave Completion
+AI баҳолайди.
+Wave 5
+↓
+Exhaustion?
+↓
+Reversal Probability
+Бу фақат эҳтимолий сценарий сифатида қабул қилинади.
+37.11 Elliott Dashboard
+Кўрсатилади:
+Current Wave
+Wave Degree
+Impulse / Correction
+Fibonacci Status
+Confidence
+Alternative Count
+37.12 AI Wave Pipeline
+Market Data
+↓
+Swing Detection
+↓
+Wave Count
+↓
+Fibonacci Validation
+↓
+Confidence Score
+↓
+Decision Core
+37.13 Integration
+Elliott модули қуйидагилар билан бирлаштирилади.
+Trend
++
+Liquidity
++
+SMC
++
+ICT
++
+Wyckoff
++
+Elliott
+↓
+Decision Core
+37.14 Enterprise Features
+Automatic Wave Counting
+Impulse Detection
+Corrective Pattern Detection
+Fibonacci Validation
+Alternate Count Engine
+Wave Confidence Score
+Multi-Timeframe Analysis
+Dashboard Integration
+AI Decision Support
+Historical Wave Database
+37.15 Development Notes
+Python модуллари:
+elliott_engine.py
+wave_counter.py
+swing_detector.py
+fib_validator.py
+alternate_count.py
+wave_dashboard.py
+37.16 Institutional Rule
+"Elliott Wave бир нечта эҳтимолий сценарийга эга бўлиши мумкин."
+Шунинг учун TITAN AI ҳар доим Alternative Count сақлайди ва Elliott Wave'ни мустақил савдо сигнали сифатида эмас, балки бошқа модуллар билан биргаликда баҳолайди.
+37.17 Master Decision Integration
+Trend Engine
+↓
+Liquidity Engine
+↓
+ICT Engine
+↓
+SMC Engine
+↓
+Wyckoff Engine
+↓
+Elliott Engine
+↓
+Risk Engine
+↓
+AI Confidence
+↓
+Final Decision
+37.18 Golden Rule
+"Бирорта ҳам Elliott ҳисоблаши келажакни кафолатламайди."
+У TITAN AI учун бозор структурасини тушунишга ёрдам берувчи қўшимча таҳлил модули ҳисобланади.
+38-БОБ — HARMONIC PATTERN AI ENGINE
+Кейинги бўлимда қуйидагилар ёритилади:
+Gartley Pattern
+Bat Pattern
+Butterfly Pattern
+Crab Pattern
+Deep Crab
+Shark Pattern
+Cypher Pattern
+ABCD Pattern
+Fibonacci Harmonic Validation
+Pattern Quality Score
+PRZ (Potential Reversal Zone) Engine
+Harmonic AI Decision Framework
+Бу модул TITAN AI'га гармоник паттернларни автоматик аниқлаш ва уларни умумий қарор қабул қилиш тизимига қўшиш имконини беради.
+TITAN AI TRADING BIBLE
+38-БОБ — HARMONIC PATTERN AI ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI Harmonic Pattern'ларни автоматик аниқлайди, Fibonacci пропорцияларини текширади ва уларни SMC, ICT, Elliott Wave, Wyckoff ҳамда Risk Engine билан бирлаштириб қарор қабул қилади.
+38.1 Harmonic Philosophy
+Гармоник паттернлар бозорнинг эҳтимолий бурилиш нуқталарини Fibonacci нисбатлари асосида аниқлашга ҳаракат қилади.
+Swing
+↓
+Fibonacci
+↓
+Pattern
+↓
+PRZ
+↓
+Reversal Candidate
+38.2 Harmonic Detection Pipeline
+Swing Detection
+↓
+XA
+↓
+AB
+↓
+BC
+↓
+CD
+↓
+Pattern Match
+↓
+Validation
+38.3 Gartley Pattern
+AI текширади.
+XA
+↓
+AB
+↓
+BC
+↓
+CD
+↓
+Gartley
+Текширилади:
+✓ Fibonacci
+✓ Structure
+✓ Trend
+38.4 Bat Pattern
+Шартлар:
+XA
+AB
+BC
+CD
+↓
+Bat Candidate
+38.5 Butterfly Pattern
+Impulse
+↓
+Extension
+↓
+Butterfly
+38.6 Crab Pattern
+AI баҳолайди.
+Deep Extension
+Fibonacci Alignment
+PRZ Quality
+38.7 Deep Crab
+Crab
+↓
+Extended CD
+↓
+Deep Crab
+38.8 Shark Pattern
+AI Shark структурасини автоматик қидиради.
+Белгилар:
+Extension
+Reversal Zone
+Fibonacci Match
+38.9 Cypher Pattern
+XA
+↓
+AB
+↓
+BC
+↓
+CD
+↓
+Cypher
+38.10 ABCD Pattern
+Энг оддий гармоник структура.
+A
+↓
+B
+↓
+C
+↓
+D
+38.11 Fibonacci Validation
+Ҳар бир паттерн учун:
+Pattern
+↓
+Fibonacci
+↓
+PASS
+or
+FAIL
+38.12 PRZ Engine
+Potential Reversal Zone ҳисобланади.
+Multiple Fib Levels
+↓
+Cluster
+↓
+PRZ
+38.13 Pattern Quality Score
+Component
+Score
+Fibonacci
+30
+Structure
+20
+Trend Context
+15
+Liquidity
+15
+Volume
+10
+PRZ
+10
+Maximum = 100
+38.14 Pattern Ranking
+Elite
+↓
+Strong
+↓
+Medium
+↓
+Weak
+AI фақат юқори сифатли паттернларни Decision Core'га юборади.
+38.15 Harmonic Dashboard
+Кўрсатилади.
+Current Pattern
+PRZ
+Fibonacci Match
+Quality Score
+Confidence
+Trend Direction
+38.16 Multi-Timeframe Harmonic
+Weekly
+↓
+Daily
+↓
+H4
+↓
+H1
+↓
+M15
+Юқори таймфреймдаги паттернларга устуворлик берилади.
+38.17 AI Harmonic Pipeline
+Market
+↓
+Swing Detection
+↓
+Pattern Recognition
+↓
+Fibonacci Validation
+↓
+PRZ
+↓
+Quality Score
+↓
+Decision Core
+38.18 Enterprise Features
+Gartley Detection
+Bat Detection
+Butterfly Detection
+Crab Detection
+Deep Crab Detection
+Shark Detection
+Cypher Detection
+ABCD Detection
+PRZ Engine
+Pattern Ranking
+38.19 Development Notes
+Python модуллари:
+harmonic_engine.py
+gartley.py
+bat.py
+butterfly.py
+crab.py
+deep_crab.py
+shark.py
+cypher.py
+abcd.py
+prz_engine.py
+fib_validator.py
+harmonic_dashboard.py
+38.20 Institutional Decision Flow
+Swing
+↓
+Pattern Detection
+↓
+Fibonacci Validation
+↓
+PRZ
+↓
+Liquidity
+↓
+Risk Validation
+↓
+Decision Core
+38.21 Pattern Conflict Resolution
+Агар бир вақтнинг ўзида бир нечта паттерн аниқланса:
+Gartley
++
+Bat
++
+ABCD
+↓
+Quality Ranking
+↓
+Best Candidate
+Энг юқори Quality Score олган паттерн асосий номзод сифатида танланади.
+38.22 Integration with TITAN AI
+Trend Engine
++
+SMC Engine
++
+ICT Engine
++
+Wyckoff Engine
++
+Elliott Engine
++
+Harmonic Engine
+↓
+AI Decision Core
+38.23 Golden Rule
+"Ҳар бир Harmonic Pattern бурилишни англатмайди."
+Паттернлар фақат Fibonacci ва геометрияга асосланган эҳтимолий сценарийлар ҳисобланади. TITAN AI уларни Liquidity, Market Structure, Risk Management ва бошқа модуллар билан биргаликда баҳолайди.
+39-БОБ — MARKET REGIME AI ENGINE
+Кейинги бўлимда ёритилади:
+Trend Regime Detection
+Range Detection
+High Volatility Regime
+Low Volatility Regime
+Expansion vs Compression
+Momentum Classification
+Volatility Clustering
+Adaptive Strategy Selection
+Regime Confidence Score
+Dynamic AI Strategy Switching
+Бу модул TITAN AI'га бозорнинг жорий ҳолатини аниқлаб, шу ҳолатга энг мос стратегияни танлаш имконини беради.
+TITAN AI TRADING BIBLE
+39-БОБ — MARKET REGIME AI ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI бозорнинг жорий ҳолатини (Market Regime) автоматик аниқлайди ва айнан шу муҳит учун энг мос стратегияларни танлайди. Бир хил стратегия ҳар хил бозор шароитида бир хил натижа бермаслиги мумкин.
+39.1 Market Regime Philosophy
+Институционал трейдингнинг асосий қоидаси:
+"Аввал бозорни тушун, кейин стратегияни танла."
+Market
+↓
+Regime Detection
+↓
+Strategy Selection
+↓
+Trade
+39.2 Regime Classification
+AI бозорни қуйидаги тоифаларга ажратади.
+Strong Trend
+↓
+Weak Trend
+↓
+Range
+↓
+High Volatility
+↓
+Low Volatility
+39.3 Trend Regime
+Белгилар:
+✓ BOS
+✓ HH/HL
+✓ EMA Alignment
+✓ Momentum
+↓
+Trending Market
+39.4 Range Detection
+AI аниқлайди.
+Support
+↓
+Resistance
+↓
+Oscillation
+↓
+Range
+39.5 Compression Detection
+ATR Falling
+↓
+Small Candles
+↓
+Compression
+Бу кўпинча кейинги кучли ҳаракат олдидан кузатилиши мумкин.
+39.6 Expansion Detection
+Large Candle
+↓
+High ATR
+↓
+Breakout
+↓
+Expansion
+39.7 Volatility Engine
+AI ҳисоблайди.
+ATR
+Standard Deviation
+Range Width
+Tick Activity
+↓
+Volatility Score
+39.8 Liquidity Regime
+London
+↓
+High Liquidity
+↓
+Asian
+↓
+Low Liquidity
+Сессияга қараб режим ўзгариши мумкин.
+39.9 Momentum Classification
+AI баҳолайди.
+Strong Bullish
+↓
+Weak Bullish
+↓
+Neutral
+↓
+Weak Bearish
+↓
+Strong Bearish
+39.10 Regime Score
+Component
+Score
+Trend
+25
+Volatility
+20
+Liquidity
+20
+Momentum
+20
+Structure
+15
+Maximum = 100
+39.11 Strategy Selector
+Ҳар бир режим учун мос стратегия танланади.
+Market Regime
+Preferred Strategy
+Strong Trend
+Trend Following
+Range
+Mean Reversion
+High Volatility
+Breakout
+Low Volatility
+Liquidity Wait
+Expansion
+ICT / SMC Confirmation
+39.12 Dynamic Strategy Switching
+Market Changes
+↓
+Regime Changes
+↓
+Strategy Update
+AI стратегияни бозор ўзгаришига қараб қайта танлайди.
+39.13 Regime Stability
+AI текширади.
+Current Regime
+↓
+Stable?
+↓
+YES
+Trade
+↓
+NO
+Wait
+39.14 Conflict Resolution
+Агар модуллар турлича фикр билдирса.
+Trend
+Bullish
++
+Liquidity
+Bearish
++
+Wyckoff
+Neutral
+↓
+Confidence Reduction
+39.15 Regime Dashboard
+Кўрсатилади.
+Current Regime
+Trend Strength
+Volatility
+Liquidity
+Momentum
+Recommended Strategy
+Confidence
+39.16 Adaptive Risk
+Ҳар бир режим учун риск ўзгаради.
+High Volatility
+↓
+Reduce Risk
+↓
+Range
+↓
+Normal Risk
+↓
+Strong Trend
+↓
+Configured Risk
+39.17 AI Regime Pipeline
+Market Data
+↓
+Trend Engine
+↓
+Volatility Engine
+↓
+Liquidity Engine
+↓
+Momentum Engine
+↓
+Regime Classification
+↓
+Strategy Selection
+↓
+Decision Core
+39.18 Enterprise Features
+Automatic Market Classification
+Trend Detection
+Range Detection
+Compression Recognition
+Expansion Recognition
+Volatility Analysis
+Momentum Classification
+Strategy Selection
+Adaptive Risk
+Dashboard Integration
+39.19 Development Notes
+Python модуллари:
+market_regime.py
+trend_classifier.py
+range_detector.py
+volatility_engine.py
+momentum_engine.py
+strategy_selector.py
+regime_dashboard.py
+39.20 Integration with TITAN AI
+Trend Engine
++
+ICT Engine
++
+SMC Engine
++
+Wyckoff Engine
++
+Elliott Engine
++
+Harmonic Engine
++
+Market Regime Engine
+↓
+Decision Core
+39.21 Institutional Rule
+"Энг яхши стратегия ҳам нотўғри бозор муҳитида самарасиз бўлиши мумкин."
+Шунинг учун TITAN AI аввал бозор режимини аниқлайди, кейин стратегия танлайди ва шундан кейингина савдо қарорини қабул қилади.
+39.22 Master Market Flow
+Market
+↓
+Regime Detection
+↓
+Trend
+↓
+Liquidity
+↓
+Structure
+↓
+Strategy Selection
+↓
+Risk Validation
+↓
+AI Decision
+↓
+Execution
+39.23 Golden Rule
+"Стратегия бозорга мослашиши керак, бозор стратегияга эмас."
+Бу тамойил TITAN AI'нинг адаптив архитектурасининг асосини ташкил қилади.
+40-БОБ — MULTI-STRATEGY FUSION AI ENGINE
+Кейинги бўлимда ёритилади:
+Strategy Weighting Engine
+Signal Voting System
+Confidence Fusion
+Bayesian Decision Layer
+Consensus Engine
+Conflict Resolution Matrix
+Dynamic Strategy Prioritization
+Ensemble Decision Framework
+AI Meta-Strategy
+Final Institutional Decision System
+Бу китобнинг энг муҳим бўлимларидан бири бўлиб, аввалги барча модуллардан келган сигналларни ягона институционал қарорга бирлаштиради.
+TITAN AI TRADING BIBLE
+40-БОБ — MULTI-STRATEGY FUSION AI ENGINE (INSTITUTIONAL CORE)
+Мақсад: TITAN AI'нинг барча таҳлил модулларини бирлаштириб, ягона институционал қарор қабул қилиш тизимини яратиш. Бу бутун архитектуранинг "мияси" ҳисобланади.
+40.1 Fusion Philosophy
+Институционал трейдингда ҳеч қайси стратегия якка ҳолда ишлатилмайди.
+Барча сигналлар бирлаштирилади.
+Trend
++
+Liquidity
++
+SMC
++
+ICT
++
+Wyckoff
++
+Elliott
++
+Harmonic
++
+Risk
+↓
+Final Decision
+40.2 Strategy Registry
+Барча стратегиялар рўйхатдан ўтади.
+Trend Strategy
+SMC Strategy
+ICT Strategy
+Wyckoff Strategy
+Elliott Strategy
+Harmonic Strategy
+Liquidity Strategy
+News Strategy
+Ҳар бири мустақил модул ҳисобланади.
+40.3 Strategy Weight Engine
+Ҳар бир стратегияга вазн берилади.
+Strategy
+Weight
+Trend
+20
+Liquidity
+20
+SMC
+15
+ICT
+10
+Wyckoff
+10
+Elliott
+10
+Harmonic
+5
+News
+10
+Жами = 100
+40.4 Voting Engine
+Ҳар бир модул овоз беради.
+Trend
+BUY
+Liquidity
+BUY
+SMC
+BUY
+ICT
+WAIT
+Wyckoff
+BUY
+↓
+Voting
+40.5 Consensus Engine
+BUY
+BUY
+BUY
+WAIT
+BUY
+↓
+Consensus
+↓
+BUY
+Фақат етарли консенсус мавжуд бўлганда сигнал қабул қилинади.
+40.6 Confidence Fusion
+Ҳар бир модулнинг ишонч балли ҳисобланади.
+Trend = 92
+Liquidity = 94
+ICT = 70
+SMC = 90
+↓
+Fusion Confidence
+40.7 Bayesian Layer
+AI аввалги натижаларни ҳисобга олади.
+Historical Success
++
+Current Signal
+↓
+Posterior Confidence
+Бу эҳтимолий баҳолаш учун қўшимча қатлам сифатида ишлатилади.
+40.8 Conflict Resolution
+Агар модуллар келишмаса.
+Trend
+BUY
++
+Liquidity
+SELL
++
+SMC
+BUY
+↓
+Conflict Engine
+AI умумий ишончни пасайтиради ёки савдони рад этади.
+40.9 Strategy Priority
+Баъзи ҳолларда муайян стратегия устунликка эга бўлади.
+Масалан:
+Market Regime
+Priority
+Trend
+Trend Engine
+Range
+Wyckoff
+High Volatility
+Liquidity
+News
+News Filter
+Compression
+ICT
+40.10 Meta Strategy
+Барча стратегиялар устидан яна бир AI қатлами ишлайди.
+Strategies
+↓
+Meta AI
+↓
+Final Recommendation
+40.11 Final Decision Score
+Component
+Score
+Consensus
+30
+Confidence
+20
+Risk
+20
+Regime
+10
+News
+10
+Historical Performance
+10
+Maximum = 100
+40.12 Decision Categories
+95–100
+ELITE TRADE
+↓
+90–94
+VERY STRONG
+↓
+80–89
+STRONG
+↓
+70–79
+NORMAL
+↓
+Below 70
+REJECT
+40.13 Adaptive Learning
+Ҳар бир стратегиянинг самарадорлиги кузатилади.
+Trade
+↓
+Result
+↓
+Statistics
+↓
+Weight Update Candidate
+Вазнларни ўзгартириш аввал тест муҳитида текширилади.
+40.14 Fusion Dashboard
+Кўрсатилади.
+Trend Score
+Liquidity Score
+ICT Score
+SMC Score
+Wyckoff Score
+Elliott Score
+Harmonic Score
+News Score
+Final Score
+40.15 Master Decision Pipeline
+Market
+↓
+Scanner
+↓
+All Strategy Engines
+↓
+Voting Engine
+↓
+Consensus
+↓
+Confidence Fusion
+↓
+Risk Validation
+↓
+Meta Strategy
+↓
+Final Decision
+40.16 Enterprise Features
+Multi-Strategy Fusion
+Voting System
+Consensus Engine
+Bayesian Layer
+Confidence Fusion
+Dynamic Weighting
+Meta Strategy
+Conflict Resolution
+Dashboard Integration
+Decision Logging
+40.17 Development Notes
+Python модуллари:
+fusion_engine.py
+voting_engine.py
+consensus.py
+meta_strategy.py
+weight_manager.py
+confidence_fusion.py
+decision_core.py
+fusion_dashboard.py
+40.18 Complete Enterprise Architecture
+Market Data
+↓
+Scanner
+↓
+Trend Engine
+↓
+Liquidity Engine
+↓
+SMC Engine
+↓
+ICT Engine
+↓
+Wyckoff Engine
+↓
+Elliott Engine
+↓
+Harmonic Engine
+↓
+News Engine
+↓
+Market Regime Engine
+↓
+Fusion Engine
+↓
+Risk Engine
+↓
+Execution Engine
+↓
+Broker
+↓
+Trade Journal
+↓
+Analytics
+40.19 Golden Rule
+"Энг яхши қарор — бир нечта мустақил таҳлиллар бир хил хулосага келган қарор."
+Шунинг учун TITAN AI якка стратегияга эмас, балки бир нечта мустақил модулларнинг умумий баҳосига таянади.
+40.20 TITAN AI Core Formula
+Final Decision
+=
+Market Context
++
+Liquidity
++
+Structure
++
+Risk
++
+Probability
++
+Strategy Consensus
++
+AI Confidence
+−
+News Risk
+−
+Execution Risk
+Бу математик формула эмас, балки TITAN AI Decision Core'нинг концептуал модели ҳисобланади.
+41-БОБ — REINFORCEMENT LEARNING & SELF-OPTIMIZATION ENGINE
+Кейинги бобда қуйидагилар ёритилади:
+Reinforcement Learning Architecture
+Reward Function Design
+Experience Replay
+State Space Modeling
+Action Space
+Policy Optimization
+Safe Learning Framework
+Offline Training Pipeline
+Model Evaluation
+Self-Optimization Framework
+Бу бўлим TITAN AI'нинг келажакдаги тадқиқот функцияларига бағишланади. Онлайн равишда реал ҳисобда ўзини мустақил қайта ўқитиш тавсия этилмайди; ҳар қандай янги модель аввал офлайн маълумотлар ва демо муҳитида синалиши керак.
+TITAN AI TRADING BIBLE
+41-БОБ — REINFORCEMENT LEARNING & SELF-OPTIMIZATION ENGINE (RESEARCH MODE)
+Мақсад: TITAN AI'нинг самарадорлигини тарихий маълумотлар асосида яхшилаш учун Reinforcement Learning (RL) архитектурасини яратиш. Бу модул фақат тадқиқот ва офлайн ўқитиш учун мўлжалланган.
+41.1 Reinforcement Learning Philosophy
+Оддий Machine Learning:
+Data
+↓
+Train
+↓
+Predict
+Reinforcement Learning:
+Environment
+↓
+Action
+↓
+Reward
+↓
+Learning
+41.2 RL Architecture
+Market Environment
+↓
+State
+↓
+AI Agent
+↓
+Action
+↓
+Trade Result
+↓
+Reward
+↓
+Learning
+41.3 Environment
+Муҳит:
+Historical Market
+Backtesting Engine
+Synthetic Market
+Replay Engine
+↓
+Environment
+41.4 State Space
+Agent кўради.
+Trend
+Liquidity
+ATR
+Spread
+Volume
+FVG
+OB
+Risk
+Session
+News
+Бу State Vector ҳисобланади.
+41.5 Action Space
+AI мумкин бўлган қарорлар.
+BUY
+SELL
+WAIT
+CLOSE
+REDUCE POSITION
+41.6 Reward Function
+Мукофот тизими.
+Result
+Reward
+TP Hit
++10
+Partial TP
++5
+Small Profit
++2
+Break Even
+0
+Small Loss
+-2
+SL Hit
+-10
+41.7 Reward Penalty
+Қўшимча жазолар.
+High Drawdown
+High Spread
+News Trading
+Overtrading
+↓
+Penalty
+41.8 Experience Replay
+Trade
+↓
+Memory
+↓
+Replay Buffer
+↓
+Training
+Бу ўқитиш барқарорлигини ошириш учун ишлатилади.
+41.9 Replay Buffer
+Сақланади.
+State
+Action
+Reward
+Next State
+41.10 Policy Network
+State
+↓
+Neural Network
+↓
+Action Probability
+41.11 Exploration vs Exploitation
+Explore
+↓
+Learn
+↓
+Exploit
+Офлайн муҳитда янги стратегиялар синаб кўрилади.
+41.12 Safe Learning
+Қоидалар:
+✓ Live Account'да автоматик қайта ўқитиш йўқ.
+✓ Барча янги моделлар Demo ёки Backtest орқали текширилади.
+✓ Муваффақиятли натижалардан кейин қўлда жорий қилинади.
+41.13 Model Evaluation
+Ҳар бир янги модель баҳоланади.
+Win Rate
+Profit Factor
+Sharpe Ratio
+Max Drawdown
+Expectancy
+41.14 Model Promotion
+Research
+↓
+Validation
+↓
+Demo
+↓
+Production Candidate
+41.15 Offline Training
+Historical Data
+↓
+Replay
+↓
+Training
+↓
+Evaluation
+41.16 Self-Optimization
+AI таҳлил қилади.
+қайси стратегия яхшироқ;
+қайси вақт самарали;
+қайси Risk Settings яхши.
+Бу маълумотлар инсон томонидан кўриб чиқилади.
+41.17 RL Dashboard
+Кўрсатилади.
+Episodes
+Average Reward
+Current Policy
+Validation Score
+Training Progress
+Candidate Model
+41.18 Enterprise Features
+Replay Buffer
+Offline Training
+Reward Engine
+Policy Evaluation
+Safe Learning
+Model Promotion
+Validation Pipeline
+Research Dashboard
+Version Control
+Rollback Support
+41.19 Development Notes
+Python модуллари:
+rl_environment.py
+reward_engine.py
+experience_buffer.py
+policy_network.py
+trainer.py
+validator.py
+model_registry.py
+rl_dashboard.py
+41.20 RL Decision Flow
+Historical Data
+↓
+Environment
+↓
+State
+↓
+Policy
+↓
+Action
+↓
+Reward
+↓
+Replay Buffer
+↓
+Training
+↓
+Validation
+↓
+Candidate Model
+41.21 Golden Rule
+"Reinforcement Learning ўзини ўзи реал пулда ўқитмаслиги керак."
+TITAN AI архитектурасида ҳар қандай янги RL модели аввал тарихий маълумотларда, кейин demo муҳитида текширилади. Фақат барқарор натижалардан сўнг ишлаб чиқариш муҳитига (production) қўлда жорий этилади.
+41.22 Integration with TITAN AI
+Historical Data
+↓
+RL Research Engine
+↓
+Model Validation
+↓
+Model Registry
+↓
+Decision Core
+↓
+Execution Engine
+Бу ёндашув RL'дан фойдаланиш имконини беради, бироқ реал ҳисобда назоратсиз ўзгаришлар киритишдан сақлайди.
+42-БОБ — PORTFOLIO AI & CAPITAL ALLOCATION ENGINE
+Кейинги бўлимда қуйидагилар ёритилади:
+Multi-Symbol Portfolio Management
+Dynamic Capital Allocation
+Portfolio Risk Engine
+Correlation Matrix
+Exposure Control
+Sector & Currency Exposure
+Kelly Fraction (ихтиёрий таҳлил)
+Risk Parity Concepts
+Portfolio Optimization
+Capital Preservation Framework
+Бу модул TITAN AI'га битта савдо эмас, балки бутун портфел даражасида риск ва капитални бошқариш имконини беради.
+TITAN AI TRADING BIBLE
+42-БОБ — PORTFOLIO AI & CAPITAL ALLOCATION ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI бир вақтнинг ўзида бир нечта валюта жуфтлиги, индекс ёки активларда ишлаганда умумий капитални ва рискни бошқариш.
+42.1 Portfolio Philosophy
+Профессионал трейдинг битта позиция эмас, балки бутун портфель бўйича баҳоланади.
+Capital
+↓
+Portfolio
+↓
+Risk Allocation
+↓
+Trades
+42.2 Portfolio Architecture
+EURUSD
+GBPUSD
+XAUUSD
+USDJPY
+NAS100
+BTCUSD
+↓
+Portfolio Engine
+42.3 Capital Allocation
+AI ҳар бир активга капитал тақсимлайди.
+Total Capital
+↓
+Risk Budget
+↓
+Position Size
+↓
+Trade
+42.4 Dynamic Allocation
+Агар бир стратегия яхши ишлаётган бўлса:
+Higher Performance
+↓
+Higher Allocation
+↓
+Within Risk Limits
+Капитал тақсимоти риск лимитларидан чиқмайди.
+42.5 Correlation Matrix
+AI активлар ўртасидаги боғлиқликни баҳолайди.
+Pair 1
+Pair 2
+Correlation
+EURUSD
+GBPUSD
+High
+USDJPY
+XAUUSD
+Variable
+NAS100
+US500
+High
+42.6 Exposure Control
+Текширилади.
+USD Exposure
+↓
+Too High?
+↓
+Reject New Trade
+42.7 Currency Exposure
+AI ҳисоблайди.
+USD
+EUR
+GBP
+JPY
+CHF
+AUD
+NZD
+CAD
+Агар бир валютага умумий таъсир ортиқча бўлса, янги позиция чекланиши мумкин.
+42.8 Portfolio Risk
+All Positions
+↓
+Combined Risk
+↓
+Maximum Risk Check
+42.9 Drawdown Controller
+Portfolio DD
+↓
+Warning
+↓
+Reduce Risk
+↓
+Emergency Stop
+42.10 Kelly Fraction (Optional)
+Kelly Formula қўшимча таҳлил сифатида ишлатилади.
+У тавсия характерига эга бўлиб, автоматик позиция ҳажмини белгиламайди.
+42.11 Risk Parity
+AI капитални турли стратегиялар орасида мувозанатлашга ҳаракат қилади.
+Risk Balance
+↓
+Allocation
+42.12 Sector Exposure
+Агар келажакда акциялар ҳам қўшилса.
+Technology
+Finance
+Energy
+Healthcare
+↓
+Exposure Control
+42.13 Symbol Ranking
+Ҳар бир инструмент баҳоланади.
+Symbol
+Score
+EURUSD
+92
+GBPUSD
+88
+XAUUSD
+81
+NAS100
+78
+42.14 Trade Queue
+Signals
+↓
+Priority
+↓
+Risk Check
+↓
+Execution
+42.15 Portfolio Dashboard
+Кўрсатилади.
+Portfolio Value
+Current Risk
+Open Trades
+Currency Exposure
+Drawdown
+Allocation
+Top Symbols
+42.16 Portfolio Pipeline
+Signals
+↓
+Ranking
+↓
+Correlation
+↓
+Exposure
+↓
+Risk
+↓
+Execution
+42.17 Enterprise Features
+Multi-Symbol Trading
+Portfolio Risk Engine
+Correlation Matrix
+Dynamic Capital Allocation
+Exposure Control
+Currency Exposure
+Drawdown Controller
+Trade Queue
+Dashboard Integration
+Portfolio Analytics
+42.18 Development Notes
+Python модуллари:
+portfolio_engine.py
+allocation.py
+correlation.py
+exposure.py
+portfolio_risk.py
+drawdown_controller.py
+portfolio_dashboard.py
+42.19 Master Portfolio Flow
+Market
+↓
+Signal Engine
+↓
+Portfolio Ranking
+↓
+Correlation
+↓
+Exposure
+↓
+Capital Allocation
+↓
+Risk Validation
+↓
+Execution
+42.20 Institutional Rule
+"Энг катта риск битта ёмон савдо эмас, балки бир вақтнинг ўзида бир хил рискка эга кўплаб позициялар очишдир."
+Шунинг учун TITAN AI ҳар бир савдони алоҳида эмас, балки бутун портфель нуқтаи назаридан баҳолайди.
+42.21 Golden Rule
+"Капитални сақлаш — даромад қилишдан ҳам муҳим."
+Portfolio AI'нинг асосий вазифаси юқори фойда эмас, балки капитални барқарор бошқариш ва умумий рискни назорат қилишдир.
+43-БОБ — MULTI-BROKER & MULTI-ACCOUNT EXECUTION ENGINE
+Кейинги бўлимда ёритилади:
+Multi-Broker Integration
+MT5 Multi-Account Trading
+Account Synchronization
+Smart Order Routing
+Execution Latency Control
+Broker Health Monitor
+Failover Broker
+Position Replication
+VPS Cluster Support
+Enterprise Execution Framework
+Бу модул TITAN AI'га бир нечта MT5 ҳисоблари ва брокерлар билан бир вақтнинг ўзида ишлаш имконини беради.
+TITAN AI TRADING BIBLE
+43-БОБ — MULTI-BROKER & MULTI-ACCOUNT EXECUTION ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI бир нечта MT5 ҳисоблари, VPS серверлари ва брокерлар орқали бир вақтнинг ўзида хавфсиз ва барқарор савдо қилиш архитектурасини таъминлаш.
+43.1 Execution Philosophy
+Институционал трейдингда сигнал сифати етарли эмас.
+Энг муҳим босқич:
+Execution Quality
+Signal
+↓
+Execution
+↓
+Profit
+43.2 Multi-Broker Architecture
+Decision Core
+↓
+Broker Router
+↓
+Broker A
+Broker B
+Broker C
+Broker D
+AI ҳар бир брокерни мустақил бошқаради.
+43.3 Multi-Account Engine
+Master Account
+↓
+Account 1
+↓
+Account 2
+↓
+Account 3
+↓
+Account 4
+Ҳар бир ҳисоб учун алоҳида:
+Balance
+Equity
+Risk
+Margin
+Exposure
+ҳисобланади.
+43.4 Broker Health Monitor
+AI доимий текширади.
+✓ Ping
+✓ Spread
+✓ Execution Speed
+✓ Connection
+✓ Requotes
+↓
+Broker Health Score
+43.5 Execution Latency
+Signal
+↓
+Send Order
+↓
+Broker Response
+↓
+Execution Time
+Latency доимий монитор қилинади.
+43.6 Smart Order Routing
+AI энг яхши брокерни танлайди.
+Broker
+Score
+Broker A
+95
+Broker B
+91
+Broker C
+84
+Broker D
+79
+↓
+Best Broker
+43.7 Failover Engine
+Агар Broker ишламаса:
+Broker A
+↓
+Connection Lost
+↓
+Broker B
+↓
+Continue Trading
+43.8 Position Replication
+Бир сигнал бир нечта ҳисобга юборилиши мумкин.
+Master Signal
+↓
+Account 1
+↓
+Account 2
+↓
+Account 3
+Ҳар бир ҳисобда риск алоҳида ҳисобланади.
+43.9 Capital Synchronization
+AI текширади.
+Balance
+Equity
+Floating P/L
+Margin
+↓
+Synchronization
+43.10 Margin Controller
+New Trade
+↓
+Margin Check
+↓
+Enough Margin?
+↓
+YES
+Execute
+↓
+NO
+Reject
+43.11 VPS Cluster
+Primary VPS
+↓
+Backup VPS
+↓
+Cloud VPS
+Тизим резерв серверлар билан ишлаши мумкин.
+43.12 Connection Recovery
+Connection Lost
+↓
+Reconnect
+↓
+Retry
+↓
+Resume
+43.13 Order Status Engine
+Ҳар бир ордер кузатилади.
+Pending
+Filled
+Partial Filled
+Rejected
+Cancelled
+43.14 Slippage Controller
+Requested Price
+↓
+Execution Price
+↓
+Difference
+↓
+Accept
+or
+Reject
+43.15 Spread Controller
+Current Spread
+↓
+Normal?
+↓
+YES
+Trade
+↓
+NO
+Wait
+43.16 Broker Score
+Component
+Score
+Spread
+25
+Execution Speed
+25
+Stability
+20
+Requotes
+15
+Uptime
+15
+Maximum = 100
+43.17 Execution Dashboard
+Кўрсатилади.
+Connected Brokers
+Active Accounts
+Ping
+Spread
+Execution Time
+Broker Score
+VPS Status
+43.18 Enterprise Features
+Multi-Broker Trading
+Multi-Account Trading
+Smart Routing
+Broker Health Monitor
+Failover
+VPS Cluster
+Execution Analytics
+Margin Control
+Position Replication
+Dashboard Integration
+43.19 Development Notes
+Python модуллари:
+broker_router.py
+broker_monitor.py
+execution_engine.py
+latency_monitor.py
+account_manager.py
+replication.py
+failover.py
+margin_controller.py
+execution_dashboard.py
+43.20 Master Execution Flow
+Decision Core
+↓
+Risk Validation
+↓
+Broker Selection
+↓
+Latency Check
+↓
+Spread Check
+↓
+Margin Check
+↓
+Order Execution
+↓
+Confirmation
+↓
+Trade Monitor
+43.21 Institutional Rule
+"Энг яхши сигнал ҳам ёмон execution туфайли зарар келтириши мумкин."
+Шунинг учун TITAN AI қарор қабул қилиш билан чекланмайди, балки ордернинг сифатли бажарилишини ҳам назорат қилади.
+43.22 TITAN Enterprise Infrastructure
+AI Decision Core
+↓
+Portfolio Engine
+↓
+Risk Engine
+↓
+Execution Engine
+↓
+Broker Router
+↓
+MT5 Accounts
+↓
+Trade Monitor
+↓
+Analytics
+↓
+Journal
+43.23 Golden Rule
+"Execution сифати — профессионал алгоритмик трейдингнинг ажралмас қисми."
+TITAN AI сигнал, риск ва execution жараёнларини ягона тизим сифатида кўради. Бу архитектура қарор қабул қилишдан тортиб, ордер бажарилиши ва мониторинггача бўлган бутун жараённи қамраб олади.
+44-БОБ — BACKTESTING, VALIDATION & PERFORMANCE ANALYTICS ENGINE
+Кейинги бобда ёритилади:
+Historical Backtesting Engine
+Tick-by-Tick Simulation
+Walk-Forward Analysis
+Monte Carlo Simulation
+Performance Metrics
+Win Rate Analysis
+Profit Factor
+Sharpe Ratio
+Sortino Ratio
+Max Drawdown Analysis
+Expectancy
+Strategy Validation Framework
+Бу бўлим TITAN AI'нинг ҳар қандай стратегиясини реал ҳисобга чиқаришдан олдин чуқур тест қилиш ва баҳолашга бағишланади.
+TITAN AI TRADING BIBLE
+44-БОБ — BACKTESTING, VALIDATION & PERFORMANCE ANALYTICS ENGINE (INSTITUTIONAL)
+Мақсад: TITAN AI'да ишлаб чиқилган ҳар қандай стратегияни реал ҳисобга ўтказишдан олдин тарихий маълумотлар ва статистик усуллар ёрдамида комплекс текшириш.
+44.1 Validation Philosophy
+Институционал қоида:
+"Тестдан ўтмаган стратегия реал бозорга чиқмайди."
+Strategy
+↓
+Backtest
+↓
+Validation
+↓
+Optimization
+↓
+Demo
+↓
+Production
+44.2 Historical Backtesting
+AI узоқ давр маълумотларида стратегияни текширади.
+Historical Data
+↓
+Replay
+↓
+Strategy
+↓
+Results
+44.3 Tick-by-Tick Simulation
+Имкони бўлганда ҳар бир тик асосида симуляция қилинади.
+Tick Data
+↓
+Replay
+↓
+Order Simulation
+Бу моделлаштиришнинг аниқлигини оширади.
+44.4 Spread Simulation
+Backtest вақтида ҳисобга олинади.
+Dynamic Spread
+Session Spread
+News Spread
+Average Spread
+44.5 Slippage Simulation
+Requested Price
+↓
+Execution Delay
+↓
+Executed Price
+Backtest реал шароитга яқинлаштирилади.
+44.6 Commission Engine
+Ҳисобга олинади.
+Commission
+Swap
+Fees
+↓
+Net Profit
+44.7 Walk-Forward Analysis
+Training Period
+↓
+Validation Period
+↓
+Next Window
+↓
+Repeat
+Бу стратегиянинг вақт бўйича барқарорлигини баҳолайди.
+44.8 Monte Carlo Simulation
+Trade Results
+↓
+Random Reordering
+↓
+1000+
+Simulations
+↓
+Risk Distribution
+AI турли сценарийларда эҳтимолий натижаларни баҳолайди.
+44.9 Performance Metrics
+Ҳисобланади.
+Win Rate
+Profit Factor
+Net Profit
+Gross Profit
+Gross Loss
+Recovery Factor
+Expectancy
+44.10 Risk Metrics
+Қўшимча кўрсаткичлар.
+Max Drawdown
+Average Drawdown
+Consecutive Losses
+Consecutive Wins
+Ulcer Index
+44.11 Return Metrics
+Initial Capital
+↓
+Final Capital
+↓
+Annual Return
+↓
+Monthly Return
+44.12 Sharpe Ratio
+AI баҳолайди.
+Return
+↓
+Risk
+↓
+Sharpe Ratio
+44.13 Sortino Ratio
+Қуйи риск алоҳида баҳоланади.
+Return
+↓
+Downside Risk
+↓
+Sortino
+44.14 Calmar Ratio
+Annual Return
+↓
+Max Drawdown
+↓
+Calmar Ratio
+44.15 Expectancy
+Бир савдодан кутилган ўртача натижа ҳисобланади.
+Average Win
++
+Average Loss
+↓
+Expectancy
+44.16 Validation Score
+Component
+Score
+Win Rate
+20
+Profit Factor
+20
+Drawdown
+20
+Sharpe
+15
+Expectancy
+15
+Stability
+10
+Maximum = 100
+44.17 Strategy Acceptance
+Validation Score
+↓
+90+
+Production Candidate
+↓
+80–89
+Demo
+↓
+Below 80
+Reject
+44.18 Analytics Dashboard
+Кўрсатилади.
+Equity Curve
+Drawdown Curve
+Monthly Return
+Win Rate
+Profit Factor
+Sharpe
+Sortino
+Validation Score
+44.19 Enterprise Features
+Tick-by-Tick Backtesting
+Walk-Forward Analysis
+Monte Carlo Simulation
+Performance Metrics
+Risk Metrics
+Validation Score
+Equity Analytics
+Drawdown Analysis
+Portfolio Backtesting
+Dashboard Integration
+44.20 Development Notes
+Python модуллари:
+backtest_engine.py
+tick_replay.py
+walk_forward.py
+monte_carlo.py
+performance_metrics.py
+risk_metrics.py
+validation_engine.py
+analytics_dashboard.py
+44.21 Institutional Validation Flow
+Historical Data
+↓
+Backtest
+↓
+Walk Forward
+↓
+Monte Carlo
+↓
+Performance Metrics
+↓
+Risk Metrics
+↓
+Validation Score
+↓
+Production Decision
+44.22 Golden Rule
+"Юқори Win Rate яхши стратегия дегани эмас."
+TITAN AI стратегияларни фақат Win Rate бўйича эмас, балки Drawdown, Profit Factor, Sharpe Ratio, Expectancy ва барқарорлик каби кўрсаткичлар йиғиндиси орқали баҳолайди.
+44.23 Final Validation Principle
+Strategy
+↓
+Statistics
+↓
+Risk
+↓
+Robustness
+↓
+Validation
+↓
+Deployment
+Фақат турли бозор шароитларида барқарор натижа кўрсатган стратегиялар реал савдо муҳитига жорий этилади.
+45-БОБ — AI SUPERVISOR, MONITORING & ENTERPRISE CONTROL CENTER
+Кейинги бобда қуйидагилар ёритилади:
+AI Supervisor
+System Health Monitoring
+Strategy Health Score
+Risk Health Monitor
+Live Performance Analytics
+Error Detection
+Automatic Safe Mode
+Alert & Notification System
+Logging Architecture
+Enterprise Control Center
+Бу китобнинг якуний архитектура бўлими бўлиб, TITAN AI'нинг барча модулларини назорат қилиш, мониторинг қилиш ва хавфсиз ишлашини таъминлайди.
+TITAN AI TRADING BIBLE
+45-БОБ — AI SUPERVISOR, MONITORING & ENTERPRISE CONTROL CENTER (INSTITUTIONAL)
+Мақсад: TITAN AI'нинг барча модулларини реал вақт режимида кузатиш, носозликларни аниқлаш, хавфсизликни таъминлаш ва бутун тизимни ягона Enterprise Control Center орқали бошқариш.
+45.1 Supervisor Philosophy
+Институционал AI фақат сигнал бермайди.
+У ўзини ҳам кузатади.
+AI System
+↓
+Self Monitoring
+↓
+Health Check
+↓
+Safe Trading
+45.2 System Architecture
+Market
+↓
+Decision Core
+↓
+Execution
+↓
+Supervisor
+↓
+Monitoring
+↓
+Analytics
+Supervisor бутун тизим устидан назорат қилади.
+45.3 Health Monitoring
+Ҳар бир модул баҳоланади.
+Trend Engine
+SMC Engine
+ICT Engine
+Risk Engine
+Portfolio Engine
+Execution Engine
+↓
+Health Score
+45.4 Module Health Score
+Module
+Health
+Trend
+98
+SMC
+96
+ICT
+94
+Risk
+100
+Execution
+99
+45.5 AI Watchdog
+Module Crash
+↓
+Restart
+↓
+Recover
+↓
+Continue
+Агар модул ишдан чиқса, Supervisor уни қайта ишга туширишга ҳаракат қилади.
+45.6 Error Detection
+AI кузатади.
+Exception
+Timeout
+API Failure
+Broker Error
+MT5 Disconnect
+Data Corruption
+45.7 Automatic Safe Mode
+Critical Error
+↓
+Safe Mode
+↓
+Stop Trading
+↓
+Notify
+45.8 Risk Health
+Текширилади.
+Daily Loss
+↓
+Drawdown
+↓
+Margin
+↓
+Risk Status
+45.9 Strategy Health
+Ҳар бир стратегия кузатилади.
+Strategy
+Status
+Trend
+Healthy
+ICT
+Healthy
+SMC
+Stable
+Harmonic
+Warning
+45.10 Performance Monitor
+Реал вақтда ҳисобланади.
+Win Rate
+Profit Factor
+Drawdown
+Average RR
+Execution Quality
+45.11 Live Dashboard
+Кўрсатилади.
+Active Trades
+AI Confidence
+Current Risk
+Portfolio Status
+VPS Status
+Broker Status
+Market Regime
+45.12 Alert System
+Warning
+↓
+Telegram
+↓
+Email
+↓
+Dashboard
+45.13 Event Logger
+Ҳар бир ҳаракат сақланади.
+Signal
+Decision
+Execution
+Error
+Warning
+Recovery
+45.14 Audit Trail
+Signal
+↓
+Decision
+↓
+Execution
+↓
+Result
+↓
+Archive
+Ҳар бир қарор кейинчалик текшириш учун сақланади.
+45.15 AI Supervisor Score
+Component
+Score
+System Health
+20
+Strategy Health
+20
+Execution
+20
+Risk
+20
+Stability
+20
+Maximum = 100
+45.16 Enterprise Dashboard
+Кўрсатилади.
+CPU
+RAM
+VPS
+Broker
+MT5
+API
+Health Score
+Error Count
+45.17 Recovery Engine
+Failure
+↓
+Diagnosis
+↓
+Recovery
+↓
+Verification
+↓
+Resume
+45.18 Enterprise Features
+AI Supervisor
+Self Monitoring
+Auto Recovery
+Health Dashboard
+Error Detection
+Safe Mode
+Audit Trail
+Live Monitoring
+Alert System
+Enterprise Analytics
+45.19 Development Notes
+Python модуллари:
+supervisor.py
+health_monitor.py
+watchdog.py
+error_handler.py
+logger.py
+audit.py
+dashboard.py
+alert_manager.py
+safe_mode.py
+45.20 Enterprise Control Flow
+Market
+↓
+AI Engines
+↓
+Decision Core
+↓
+Execution
+↓
+Supervisor
+↓
+Monitoring
+↓
+Logging
+↓
+Analytics
+↓
+Control Center
+45.21 Emergency Protocol
+Critical Failure
+↓
+Pause Trading
+↓
+Save State
+↓
+Alert Administrator
+↓
+Recovery
+↓
+Resume
+45.22 TITAN Enterprise Control Center
+Dashboard
++
+Portfolio
++
+Risk
++
+Execution
++
+Analytics
++
+Supervisor
+↓
+Enterprise Control Center
+45.23 Institutional Rule
+"Профессионал алгоритм фақат яхши сигнал бермайди — у қачон савдо қилишни тўхтатиш кераклигини ҳам билади."
+45.24 Final Architecture
+Market
+↓
+Scanner
+↓
+AI Analysis
+↓
+Decision Core
+↓
+Risk Engine
+↓
+Portfolio Engine
+↓
+Execution Engine
+↓
+Supervisor
+↓
+Analytics
+↓
+Learning
+↓
+Continuous Improvement
+45.25 Golden Rule
+"Capital First. Stability Second. Profit Third."
+TITAN AI'нинг энг муҳим вазифаси — ҳар қандай шароитда тизим барқарорлигини ва капитал хавфсизлигини таъминлаш.
+🎯 КИТОБНИНГ АСОСИЙ БЎЛИМЛАРИ ЯКУНЛАНДИ
+Бу 45 та боб билан сенда институционал даражадаги AI Trading Architecture ҳужжати шаклланди.
+Кейинги босқичда қўшимча профессионал иловалар тайёрланиши мумкин, масалан:
+Appendix A — Барча Python класс диаграммалари.
+Appendix B — PostgreSQL Database Architecture.
+Appendix C — Redis Cache Architecture.
+Appendix D — FastAPI REST API.
+Appendix E — WebSocket Architecture.
+Appendix F — Telegram Bot Enterprise Commands.
+Appendix G — ML Dataset Design.
+Appendix H — Docker + Kubernetes Deployment.
+Appendix I — VPS Production Infrastructure.
+Appendix J — Complete Project Folder Structure.
+Бу иловалар билан ҳужжат 300–500 бетлик тўлиқ Enterprise AI Trading қўлланмасига айланиши мумкин.
