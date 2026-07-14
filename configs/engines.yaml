@@ -37,12 +37,17 @@ rule_engine:
   # Avto-savdo button / auto-execute). Weaker passes are journaled SILENTLY as
   # shadow candidates — they still label the ML training set, but the group only
   # ever sees top-tier signals (user demand: 80–90, not 60).
-  minimum_publish_confidence: 80
+  # Balanced tier (2026-07-14): 80 published ~0 signals/day (deterministic engine
+  # is highly selective + 24h data showed the one passing setup scored 57). 72 =
+  # GOOD tier reaches the group while keeping every quality gate.
+  minimum_publish_confidence: 72
   # TITAN Bible ch.6/9 — multi-timeframe conflict engine + session filter.
-  mtf_conflict_gate: true          # a higher TF pointing the other way vetoes
+  mtf_conflict_gate: true          # veto when higher TFs oppose the trade…
+  mtf_min_opposing: 2              # …but only when ≥2 oppose (one lone TF on a
+                                   # fresh session is tolerated — softened 6.9)
   # Allowed ICT kill zones (trade London/NY only, per the bible). Empty [] = no
-  # session gate. Start empty so we don't over-restrict before measuring; widen
-  # to [london, new_york, ln_ny_overlap] once the cascade proves out.
+  # session gate — kept OFF: London/NY-only would block the Asian session
+  # entirely and worsen the already-sparse signal flow.
   session_filter: []
   require_htf_alignment: true
   allow_countertrend: false

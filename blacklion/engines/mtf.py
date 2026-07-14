@@ -32,11 +32,17 @@ class MTFResult(BaseModel):
         want = "BUY" if direction == "BUY" else "SELL"
         return sum(1 for t in self.trends.values() if t == want)
 
-    def conflicts(self, direction: str) -> bool:
-        """A higher timeframe points the OTHER way — the bible's reject rule
-        (6.9: Daily BUY but H4 SELL → reject)."""
+    def opposing(self, direction: str) -> int:
+        """How many higher timeframes point the OTHER way."""
         against = "SELL" if direction == "BUY" else "BUY"
-        return any(t == against for t in self.trends.values())
+        return sum(1 for t in self.trends.values() if t == against)
+
+    def conflicts(self, direction: str, min_opposing: int = 2) -> bool:
+        """Reject only when at least `min_opposing` higher timeframes oppose the
+        trade — one lone disagreeing TF (common on a fresh session when D1/H4/H1
+        are still transitioning) is tolerated; a majority against is not
+        (softened bible 6.9/6.11)."""
+        return self.opposing(direction) >= min_opposing
 
     def score(self, direction: str) -> float:
         """0..1 alignment ratio for the confidence engine."""

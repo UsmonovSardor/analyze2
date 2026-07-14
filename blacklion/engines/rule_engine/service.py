@@ -75,6 +75,8 @@ class RuleEngine:
         # TITAN Bible ch.6/9: MTF conflict gate + session filter. Allowed kill
         # zones (London/NY per the bible); empty list disables the session gate.
         self.mtf_conflict_gate: bool = bool(cfg.get("mtf_conflict_gate", True))
+        # how many higher TFs must oppose before we reject (softened 6.9/6.11)
+        self.mtf_min_opposing: int = int(cfg.get("mtf_min_opposing", 2))
 
     def evaluate(self, symbol: str, df: pd.DataFrame,
                  structure: StructureResult, liquidity: LiquidityResult,
@@ -107,7 +109,7 @@ class RuleEngine:
         # A higher timeframe pointing the OTHER way vetoes the trade — no signal
         # on one timeframe against the cascade.
         if (self.mtf_conflict_gate and mtf is not None and direction != "NO TRADE"
-                and mtf.conflicts(direction)):
+                and mtf.conflicts(direction, self.mtf_min_opposing)):
             against = [f"{tf}:{t}" for tf, t in mtf.trends.items()
                        if t not in (direction, "NO TRADE")]
             rejected.append("HTF cascade conflict (" + ", ".join(against) + ")")

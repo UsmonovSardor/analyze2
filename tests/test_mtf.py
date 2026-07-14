@@ -44,12 +44,20 @@ def test_aligned_cascade_scores_full():
     assert res.score("BUY") == 1.0
 
 
-def test_conflict_detected_when_higher_tf_opposes():
-    per = {"D1": _trend(False, True),          # bearish D1
+def test_one_opposing_tf_is_tolerated_two_conflicts():
+    # softened 6.9: a lone opposing TF is NOT a conflict; a majority is
+    one = {"D1": _trend(False, True),          # only D1 bearish
            "H4": _trend(True, False), "H1": _trend(True, False)}
-    res = _mtf(per).analyze(_Src(), "EURUSD", "M15")
-    assert res.conflicts("BUY")                # D1 SELL vetoes a BUY
-    assert res.agrees("BUY") == 2
+    res = _mtf(one).analyze(_Src(), "EURUSD", "M15")
+    assert res.opposing("BUY") == 1
+    assert not res.conflicts("BUY")            # default min_opposing=2 → tolerated
+    assert res.conflicts("BUY", min_opposing=1)   # strict mode still available
+
+    two = {"D1": _trend(False, True), "H4": _trend(False, True),
+           "H1": _trend(True, False)}
+    res2 = _mtf(two).analyze(_Src(), "EURUSD", "M15")
+    assert res2.opposing("BUY") == 2
+    assert res2.conflicts("BUY")               # ≥2 oppose → reject
 
 
 def test_missing_tf_is_skipped_not_fatal():
