@@ -119,7 +119,11 @@ class RuleEngine:
             rejected.append("no directional structure (sideways)")
         if not (structure.bos or structure.choch):
             rejected.append("no BOS/CHOCH confirmation")
-        if self.require_htf and htf_bullish is not None and direction != "NO TRADE":
+        # Single-context HTF gate — used only when NO cascade is supplied; when
+        # the MTF cascade is present it is the holistic (and softened) HTF check,
+        # so this stricter single-TF veto would just double-reject strong setups.
+        if (self.require_htf and mtf is None and htf_bullish is not None
+                and direction != "NO TRADE"):
             if (direction == "BUY") != htf_bullish:
                 rejected.append("HTF trend conflicts with entry")
         if not self.allow_counter and direction != "NO TRADE":
@@ -287,7 +291,12 @@ class RuleEngine:
         plus explicit bonuses for the independent confirmations that actually
         distinguish an A-setup. Only ≥ minimum_publish_confidence signals are
         published; the rest stay journal-only (ML training shadow candidates)."""
-        base = 0.5 * confluence + 0.2 * structure.strength
+        # A setup here has cleared EVERY mandatory gate (structure, BOS/CHOCH,
+        # aligned OB/FVG, location, regime, MTF), so its confluence is earned —
+        # confidence tracks it directly, with bonuses for the extra confirmations
+        # that separate a GOOD setup from an ELITE one (fixes: confluence 73 →
+        # confidence 58, which shadowed real signals under the 72 publish gate).
+        base = 0.8 * confluence + 0.2 * structure.strength
         extras = 0
         if liquidity.liquidity_swept:
             extras += 8              # liquidity taken → institutional footprint
